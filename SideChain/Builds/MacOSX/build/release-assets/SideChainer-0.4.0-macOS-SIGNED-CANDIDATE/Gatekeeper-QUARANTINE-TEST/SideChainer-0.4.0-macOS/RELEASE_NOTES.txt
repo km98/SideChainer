@@ -1,0 +1,38 @@
+SIDECHAINER 0.4.0 — macOS
+Release date: 2026-09-30
+Product: SideChainer (internal technical product ID: sidechain)
+Publisher: Music-Prod.com
+
+WHAT'S IN THIS PACKAGE
+  SideChain.component  — Audio Unit (AU), macOS universal (x86_64 + arm64)
+  SideChain.vst3       — VST3, macOS universal (x86_64 + arm64)
+
+INSTALL
+  1. Unzip.
+  2. Copy SideChain.component to /Library/Audio/Plug-Ins/Components/
+     (or ~/Library/Audio/Plug-Ins/Components/ for a per-user install).
+  3. Copy SideChain.vst3 to /Library/Audio/Plug-Ins/VST3/
+     (or ~/Library/Audio/Plug-Ins/VST3/).
+  4. Restart your DAW if it was running.
+
+  Automated validation: AU validation, headless AU host probe, and VST3
+  topology check. Manual Logic Pro and Ableton Live host checks: NOT TESTED.
+  No external sidechain routing is required — SideChainer follows your
+  DAW's tempo directly.
+
+SYSTEM REQUIREMENTS
+  macOS with an Intel or Apple Silicon processor (universal binary).
+  AU or VST3 host.
+
+SHA-256
+  SideChain.component/Contents/MacOS/SideChain
+  cb5ea146299342ee9d7dab617f7e2b2e20bd004909e9f0c4137f885c96468135
+  SideChain.vst3/Contents/MacOS/SideChain
+  d54c3077d95eb2e75251fc40ed6d509299fb56910e31435589f079586e3c90a0
+
+VERSION HISTORY
+  0.4.0 — First public-ready release. Internal tempo-synced rhythmic
+          ducking driven by the DAW beat (no kick track or external
+          sidechain routing). 10 factory presets, SIDECHAIN and ANALYZER
+          graph views, Amount / DUCK LENGTH / Shape (Release) / Offset
+          controls, Music-Prod account linking.

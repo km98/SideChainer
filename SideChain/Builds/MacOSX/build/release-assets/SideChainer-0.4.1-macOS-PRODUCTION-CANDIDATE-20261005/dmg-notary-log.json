@@ -1,0 +1,71 @@
+{
+  "logFormatVersion": 1,
+  "jobId": "4b253961-aa43-48db-9da9-03b97e2df646",
+  "status": "Accepted",
+  "statusSummary": "Ready for distribution",
+  "statusCode": 0,
+  "archiveFilename": "SideChainer-0.4.1-macOS-PRODUCTION.dmg",
+  "uploadDate": "2026-10-05T10:27:56.324Z",
+  "sha256": "a6c49f144aa4a225908c11f455de0930c4ff376ef2b0f64e444099c11a29680d",
+  "ticketContents": [
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/VST3/SideChain.vst3",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "c56dd6b4e041662786ffee993443669a4fd18761",
+      "arch": "x86_64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/VST3/SideChain.vst3",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "b52c77c2b16f6a3599922f30390bb39346320d59",
+      "arch": "arm64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/VST3/SideChain.vst3/Contents/MacOS/SideChain",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "c56dd6b4e041662786ffee993443669a4fd18761",
+      "arch": "x86_64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/VST3/SideChain.vst3/Contents/MacOS/SideChain",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "b52c77c2b16f6a3599922f30390bb39346320d59",
+      "arch": "arm64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/Components/SideChain.component",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "81ba5ef8154a64839d388e86f9b247eb5fe95534",
+      "arch": "x86_64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/Components/SideChain.component",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "ca5d8a885e0de99b29771019406211beba131f2e",
+      "arch": "arm64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/Components/SideChain.component/Contents/MacOS/SideChain",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "81ba5ef8154a64839d388e86f9b247eb5fe95534",
+      "arch": "x86_64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg/SideChainer-0.4.1-macOS.pkg Contents/Payload/Library/Audio/Plug-Ins/Components/SideChain.component/Contents/MacOS/SideChain",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "ca5d8a885e0de99b29771019406211beba131f2e",
+      "arch": "arm64"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg/SideChainer-0.4.1-macOS.pkg",
+      "digestAlgorithm": "SHA-1",
+      "cdhash": "2e00f0d490167f25489a90a9a44b1d06a23e49b0"
+    },
+    {
+      "path": "SideChainer-0.4.1-macOS-PRODUCTION.dmg",
+      "digestAlgorithm": "SHA-256",
+      "cdhash": "e9c6f66a30a5c8368de2a8f2fe8c69959b543757"
+    }
+  ],
+  "issues": null
+}

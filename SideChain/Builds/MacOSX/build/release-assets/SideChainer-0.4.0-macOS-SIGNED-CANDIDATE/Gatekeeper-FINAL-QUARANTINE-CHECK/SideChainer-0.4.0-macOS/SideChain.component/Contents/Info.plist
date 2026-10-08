@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AudioComponents</key>
+	<array>
+		<dict>
+			<key>description</key>
+			<string>Tempo-synchronised rhythmic ducking effect</string>
+			<key>factoryFunction</key>
+			<string>SideChainAUFactory</string>
+			<key>manufacturer</key>
+			<string>Musc</string>
+			<key>name</key>
+			<string>Music-Prod: SideChain</string>
+			<key>resourceUsage</key>
+			<dict>
+				<key>network.client</key>
+				<true/>
+				<key>temporary-exception.files.all.read-write</key>
+				<true/>
+			</dict>
+			<key>subtype</key>
+			<string>SdCh</string>
+			<key>type</key>
+			<string>aufx</string>
+			<key>version</key>
+			<integer>1024</integer>
+		</dict>
+	</array>
+	<key>BuildMachineOSBuild</key>
+	<string>25G229</string>
+	<key>CFBundleDisplayName</key>
+	<string>SideChain</string>
+	<key>CFBundleExecutable</key>
+	<string>SideChain</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.musicprod.sidechain</string>
+	<key>CFBundleName</key>
+	<string>SideChain</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.4.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleSupportedPlatforms</key>
+	<array>
+		<string>MacOSX</string>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>0.4.0</string>
+	<key>DTCompiler</key>
+	<string>com.apple.compilers.llvm.clang.1_0</string>
+	<key>DTPlatformBuild</key>
+	<string>25C58</string>
+	<key>DTPlatformName</key>
+	<string>macosx</string>
+	<key>DTPlatformVersion</key>
+	<string>26.2</string>
+	<key>DTSDKBuild</key>
+	<string>25C58</string>
+	<key>DTSDKName</key>
+	<string>macosx26.2</string>
+	<key>DTXcode</key>
+	<string>2630</string>
+	<key>DTXcodeBuild</key>
+	<string>17C529</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>11.00</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>(c) 2026 Music-Prod</string>
+</dict>
+</plist>

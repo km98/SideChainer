@@ -1,0 +1,24 @@
+SideChain INSTALLED-AU host probe: /tmp/sidechainer-final-payload-check.COFF9U/pkg/Payload/Library/Audio/Plug-Ins/Components/SideChain.component
+  found: SideChain / AudioUnit:Effects/aufx,SdCh,Musc chIn=2 chOut=2
+  created: SideChain (in 1 / out 1 buses)
+  default layout: in0=2 ch, in1=-1 ch
+
+A. defaults, 48k/512, PLAYING
+     minGain 0.0022 (53.1 dB duck), sc blocks 188
+  [PASS] A: hosted AU DUCKS on a kick (>5 dB)
+
+B. 44.1k / 128 (Logic defaults)
+     minGain 0.0006 (64.4 dB duck), sc blocks 690
+  [PASS] B: 44.1k/128 hosted AU DUCKS (>5 dB)
+
+C. Amount forced to 100 %
+     minGain 0.0022 (53.1 dB duck)
+  [PASS] C: Amount 100%% hosted duck is deep (>15 dB)
+
+D. state save / reload
+     minGain 0.0022 (53.1 dB duck)
+  [PASS] D: reloaded-state instance DUCKS (>5 dB)
+
+==============================
+4/4 checks passed. REPRO FAILED (plugin works)
+==============================

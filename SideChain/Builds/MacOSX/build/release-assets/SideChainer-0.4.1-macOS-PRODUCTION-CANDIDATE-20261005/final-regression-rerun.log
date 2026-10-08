@@ -1,0 +1,459 @@
+
+============================================================
+ DSPRegressionTests
+============================================================
+  compiling DSPRegressionTests.cpp ...
+SideChain Phase 3 DSP Regression Tests (0.4.0)
+==============================================
+
+TEST 1: Amount = 0% => unity passthrough (even with beats firing)
+  [PASS] Amount 0%: output == input (L)
+  [PASS] Amount 0%: final gain == 1.0
+
+TEST 2: No beats (stopped transport) => no ducking
+  [PASS] no beats: gain stays at ~1.0
+  [PASS] no beats: main not muted
+
+TEST 3: One beat => one duck then smooth recovery
+  [PASS] beat: deep duck occurred (Amount 100 %)
+  [PASS] beat: reduction begins at the beat (no pre-ducking)
+  [PASS] beat: smooth recovery to near-unity
+  [PASS] beat: recovery is smooth (no jump back)
+
+TEST 4: Repeated beats => repeated ducks, recovery between
+  [PASS] repeated beats: deep ducks occurred
+  [PASS] repeated beats: exactly one duck per beat (got 2 of 2)
+  [PASS] repeated beats: recovery between beats
+
+TEST 5: Stereo main integrity (different L/R signals)
+  [PASS] stereo main: L/R ratio preserved under ducking
+
+TEST 6: One shared gain on both main channels
+  [PASS] single shared gain applied to both main channels
+
+TEST 7: No leakage (silence in => silence out, even while ducking)
+  [PASS] leakage: silent main stays exactly silent while beats duck
+  [PASS] leakage: no NaN/Inf
+
+TEST 8: Amount progression 0/25/50/75/100 % monotonic
+  0%: 0.000 dB  25%: -2.61 dB  50%: -7.91 dB  75%: -15.1 dB  100%: -24.0 dB
+  [PASS] amount progression: ducking depth increases monotonically
+  [PASS] amount 100%: depth lands in the musical pump region (-24 dB)
+
+TEST 9: Extreme amounts / no NaN with beat triggers
+  [PASS] fast tempo: no NaN/Inf
+  [PASS] fast tempo: gain stays in [0,1]
+  [PASS] fast tempo: gain never collapses to exactly zero
+
+BLOCK SIZE STABILITY (32..1024, amount 100%, 120 BPM)
+  [PASS] block sizes: no NaN/Inf at any size
+  [PASS] block sizes: response is block-size independent (32..1024)
+
+SAMPLE RATE STABILITY (44100/48000/88200/96000)
+  44100Hz: -0.05 dB  48000Hz: -0.04 dB  88200Hz: -0.05 dB  96000Hz: -0.05 dB
+  [PASS] sample rates: no NaN/Inf
+  [PASS] sample rates: consistent beat-driven ducking (coefficients rate-aware)
+
+AMOUNT=0 TRANSPARENCY over all block sizes
+  [PASS] Amount=0: gain is exactly 1.0 at every sample, every block size
+
+======================================
+25/25 checks passed. ALL TESTS PASSED
+
+============================================================
+ Phase4Tests
+============================================================
+  compiling Phase4Tests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChain Phase 4 Regression Tests (0.4.0)
+==========================================
+
+A. GraphFrameFifo SPSC behaviour
+  [PASS] FIFO: newest kCapacity frames retrieved after overfill
+  [PASS] FIFO: strict ordering preserved
+  [PASS] FIFO: empty after drain
+  [PASS] FIFO: over-capacity push tolerated (no crash)
+
+B1. Graph data: silence everywhere (no beats fired)
+  [PASS] silence: input/sidechain/output at silence, GR = 0
+
+B2. Graph data: main only, no beat triggers (BPM 0 fail-safe)
+  [PASS] main only + no beats: input>0, GR=0, output==input
+
+B3. Graph data: beats firing (internal trigger)
+  [PASS] beat-driven ducking: deep GR per beat and recovery between beats
+  [PASS] graph frames carry the host BPM for the beat display
+
+C. Amount automation ramp (no clicks / no discontinuities)
+     (max adjacent-sample gain step during automation sweep: 0.0139183)
+  [PASS] automation ramp: no NaN/Inf
+  [PASS] automation ramp: no gain discontinuities (no clicks)
+
+D. State round-trip sanity (ValueTree serialization of Amount)
+  [PASS] state: tree write propagates to parameter/atomic
+  [PASS] state: serialized tree valid
+  [PASS] state: Amount=73 survives round-trip
+
+==================================
+13/13 checks passed. ALL TESTS PASSED
+
+============================================================
+ Phase6Tests
+============================================================
+  compiling Phase6Tests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChain Phase 6 Tests (Release parameter)
+===========================================
+
+1. Parameter layout
+  [PASS] parameter sidechainAmount exists
+  [PASS] parameter release exists
+  [PASS] release is AudioParameterFloat (automatable, host-normalised)
+  [PASS] release range start = 50 ms
+  [PASS] release range end = 1000 ms
+  [PASS] release default = 150 ms (== Phase 5 DSP)
+  [PASS] release is host-automatable
+  [PASS] amount default still 50%
+  [PASS] amount range still 0..100
+
+2. Shape mapping (derived hold/tau coherence)
+  shape=50 hold=12 tau=79  shape=150 hold=24 tau=75  shape=1000 hold=125 tau=41
+  [PASS] shape changes the plateau/tail split; hold + 3 tau = Duck Length
+
+3. Amount + Release matrix
+     Amount  25.0%, Release    50 ms: ducked gain 0.7403 (-2.6 dB), max 1.0000
+     Amount  25.0%, Release   200 ms: ducked gain 0.7403 (-2.6 dB), max 1.0000
+     Amount  25.0%, Release  1000 ms: ducked gain 0.7403 (-2.6 dB), max 1.0000
+     Amount  50.0%, Release    50 ms: ducked gain 0.4019 (-7.9 dB), max 1.0000
+     Amount  50.0%, Release   200 ms: ducked gain 0.4019 (-7.9 dB), max 1.0000
+     Amount  50.0%, Release  1000 ms: ducked gain 0.4019 (-7.9 dB), max 1.0000
+     Amount  75.0%, Release    50 ms: ducked gain 0.1749 (-15.1 dB), max 1.0000
+     Amount  75.0%, Release   200 ms: ducked gain 0.1749 (-15.1 dB), max 1.0000
+     Amount  75.0%, Release  1000 ms: ducked gain 0.1749 (-15.1 dB), max 1.0000
+     Amount 100.0%, Release    50 ms: ducked gain 0.0631 (-24.0 dB), max 1.0000
+     Amount 100.0%, Release   200 ms: ducked gain 0.0631 (-24.0 dB), max 1.0000
+     Amount 100.0%, Release  1000 ms: ducked gain 0.0631 (-24.0 dB), max 1.0000
+  [PASS] matrix: all finite
+  [PASS] matrix: no zipper steps > 0.25
+  [PASS] matrix: output gain never above unity
+  [PASS] matrix: ducked depth identical across Release values (depth from Amount only)
+
+4. Release automation sweep
+  [PASS] automation: gain finite and within [0,1] during Release sweep
+  [PASS] automation: no discontinuities during Release sweep
+
+5. State save/restore + compatibility
+  [PASS] immediate save: Amount=73 restores
+  [PASS] immediate save: Release=400 ms restores
+  [PASS] old state: Amount=30 restores
+  [PASS] old state without Release: safe default 150 ms
+  [PASS] saved state carries stateVersion = 5 (0.4.0 internal-trigger schema)
+
+6. Graph ordering vs Shape
+     +150 ms residual GR: shape(50) -2.5 dB, shape(1000) -24.0 dB
+  [PASS] graph: short-plateau shape recovers further (real DSP difference)
+     deepest GR on the beat: fast -24.0 dB, slow -24.0 dB
+  [PASS] graph: both shapes duck deeply (depth unchanged by shape)
+
+7. Edge cases vs Release
+  [PASS] Shape 50 ms: stopped transport => unity, no artifacts
+  [PASS] Shape 50 ms: gain never exceeds unity
+  [PASS] Release 50 ms: no sidechain leakage to output
+  [PASS] Release 50 ms: stereo run finite, recovery > 0.90
+  [PASS] Shape 1000 ms: stopped transport => unity, no artifacts
+  [PASS] Shape 1000 ms: gain never exceeds unity
+  [PASS] Release 1000 ms: no sidechain leakage to output
+  [PASS] Release 1000 ms: stereo run finite, recovery > 0.13
+
+8. Phase 7A: corrupt state hardening
+  [PASS] 7A: valid state restores Amount=66 and Release=300
+  [PASS] 7A: missing Release -> default 150 ms
+  [PASS] 7A: missing Amount -> default 50 %
+  [PASS] 7A: negative Release -> default 150 ms, never out of range
+  [PASS] 7A: Release above maximum -> default 150 ms
+  [PASS] 7A: Amount above maximum -> default 50 %
+  [PASS] 7A: NaN Release payload -> default, DSP value finite
+  [PASS] 7A: Inf Amount payload -> default, DSP value finite
+  [PASS] 7A: non-numeric Release value -> default
+  [PASS] 7A: malformed XML ignored, current state kept
+  [PASS] 7A: empty/null state handled without crash
+  [PASS] 7A: future stateVersion 99 -> known parameters load safely
+  [PASS] 7A: unknown properties/parameters ignored, known ones load
+  [PASS] 7A: DSP output finite after NaN/negative state load
+
+===========================================
+45/45 checks passed. ALL TESTS PASSED
+
+============================================================
+ PresetTests
+============================================================
+  compiling PresetTests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChainer Phase 7 Preset Tests (0.4.0)
+========================================
+
+1. Factory preset table
+  [PASS] exactly 10 factory presets exist
+  [PASS] every preset has a unique name
+  [PASS] every preset has valid Amount/Shape/Length values
+  [PASS] every preset has a DISTINCT base duck length
+  [PASS] all required trigger preset names present
+  [PASS] preset values match the documented design exactly
+
+2. Preset recall (exact values, host-visible notification)
+  [PASS] every preset writes its exact Amount, Shape and base Length
+  [PASS] preset recall is host-visible through the parameter objects
+  [PASS] unknown preset name rejected, state unchanged
+
+3. Current-preset identity (derived, never stored)
+  [PASS] fresh plugin shows "Default" (50% / 150 ms / 250 ms)
+  [PASS] selecting a preset shows its name
+  [PASS] manual Amount change after a preset -> Custom
+  [PASS] manual Shape change after a preset -> Custom
+  [PASS] manual Duck Length change after a preset -> Custom
+  [PASS] exact return to preset values restores the preset name
+  [PASS] near-miss values do not falsely match a preset
+  [PASS] applyDefaultPreset restores defaults and shows Default
+
+4. State round-trips (values are authoritative)
+  [PASS] saved preset state restores exact Amount + Shape + Length
+  [PASS] restored state re-identifies the factory preset (by values)
+  [PASS] saved custom state restores values and identifies as Custom
+  [PASS] saved state contains no preset name/index (values only)
+  [PASS] preset rename does not break value-based identification
+  [PASS] stateVersion = 5 (0.4.0 internal-trigger schema)
+
+5. Preset switching while processing (audio safety)
+  [PASS] preset selection leaves bus topology unchanged
+  [PASS] preset switching: output finite, gain <= unity, stereo intact
+  [PASS] preset switching: no clicks/zipper (max sample step <= 0.25)
+  [PASS] preset switching: output never exceeds main input
+  [PASS] graph: real DSP frames continue after preset switches
+
+6. Internal triggering works for every preset
+  [PASS] every preset triggers internally on every beat
+  [PASS] every preset recovers between beats (no continuous duck)
+
+==============================
+30/30 checks passed. ALL TESTS PASSED
+
+============================================================
+ Phase8Tests
+============================================================
+  compiling Phase8Tests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+
+1. Transport gate logic
+  [PASS] PLAY and RECORD each count as transport-active
+  [PASS] STOPPED is not transport-active
+
+2. Transport behaviour (real processor + injected play head)
+  [PASS] PLAY: finite, no leakage, stereo intact, no zipper
+  [PASS] PLAY: ducking engages (gain pulled well below unity)
+  [PASS] PLAY->STOP: gain returns smoothly to unity (settled ~1.0)
+  [PASS] gain never above unity
+  [PASS] STOPPED (0.4.0): no beat triggers, gain settles at unity
+  [PASS] STOPPED (0.4.0): ducking never engages while stopped
+  [PASS] STOP->PLAY: sidechain resumes ducking
+  [PASS] RECORD alone is transport-active (gate logic)
+  [PASS] no play head => treated as STOPPED (sidechain inactive)
+  [PASS] Amount = 0: strictly unity in all transport states
+  [PASS] sidechainWhileStopped is gone (0.4.0 internal trigger)
+  [PASS] the four 0.4.0 parameters all exist
+
+3. State round-trips + old-version compatibility
+  [PASS] saved state restores Duck Length + Offset
+  [PASS] old v1 state: Amount + Release restore
+  [PASS] old v1 state: Duck Length defaults safely
+  [PASS] legacy state with removed PARAM loads safely (no crash)
+  [PASS] no auth data in plugin (DAW) state
+
+4. Auth state machine (mock transport)
+  [PASS] auth: starts signed out
+  [PASS] auth: identifies product as SideChain (not VYRE)
+  [PASS] auth: start -> LINKING state
+  [PASS] auth: user code surfaced for display
+  [PASS] auth: pending poll keeps LINKING
+  [PASS] auth: approved poll -> SIGNED IN
+  [PASS] auth: display name accepted (may be empty)
+  [PASS] auth: token persisted to auth file
+  [PASS] auth: reload with stored token -> SIGNED IN
+  [PASS] auth: Music-Prod+ ACTIVE (subscribed=true)
+  [PASS] auth: Music-Prod+ NOT ACTIVE (still signed in)
+  [PASS] auth: signed in before logout
+  [PASS] auth: logout calls transport
+  [PASS] auth: logout -> SIGNED OUT
+  [PASS] auth: logout removes persisted token file
+  [PASS] auth: 401 -> local sign-out (revoked/expired token)
+  [PASS] auth: network failure keeps cached sign-in
+  [PASS] auth: start failure -> AUTHENTICATION ERROR with message
+  [PASS] auth: expired code -> AUTHENTICATION ERROR
+  [PASS] auth: approved without token does NOT sign in
+  [PASS] auth: device identity is SideChain
+  [PASS] auth: background polling starts in LINKING (waiting)
+  [PASS] auth: background poll transitioned to SIGNED IN (no manual poll)
+  [PASS] auth: background poller actually polled the server
+  [PASS] auth: pending poll keeps LINKING under background polling
+  [PASS] auth: cancel exits LINKING to SIGNED OUT while polling
+  [PASS] auth: no further polls after cancel (loop terminated)
+
+4B. Phase 8B product identity (mock transport)
+  [PASS] 8B: start request carries product identity 'sidechain'
+  [PASS] 8B: SideChain verification page is /plugin/link (product-neutral)
+  [PASS] 8B: SideChain is NOT sent to the VYRE link page
+  [PASS] 8B: unknown product identity rejected safely (no URL, error state)
+  [PASS] 8B: missing product identity fails safely (server 400)
+  [PASS] 8B: vyre product keeps the historical /vyre/link page (back-compat)
+  [PASS] 8B: SideChain never sends VYRE product identity
+
+5. UI branding safety
+  [PASS] UI: no cross-product branding in user-visible strings
+
+==============================
+54/54 checks passed. ALL TESTS PASSED
+==============================
+
+============================================================
+ DuckLengthTests
+============================================================
+  compiling DuckLengthTests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChainer DUCK LENGTH + View-Mode Tests (0.4.0)
+=================================================
+
+1. ENGINE: DUCK LENGTH basics
+  [PASS] default duck length is kDuckLengthDefaultMs (250 ms)
+  [PASS] duck length clamps to minimum (50 ms)
+  [PASS] duck length clamps to maximum (1000 ms)
+     audible duck: short 70.0 ms, long 860.3 ms
+  [PASS] one trigger fired per beat
+  [PASS] short length (60 ms) -> audible duck < 120 ms
+  [PASS] long length (900 ms) -> audible duck > 600 ms
+  [PASS] long duck is clearly (>3x) longer than short
+     scaling: 60->69 150->154 300->295 600->578 1000->954
+  [PASS] audible duck duration grows monotonically with DUCK LENGTH
+  [PASS] duck length does not change duck depth (75% stays ~-14.9 dB)
+  [PASS] Release (shape) moves the envelope far less than Duck Length does
+  [PASS] Release 50 / Length 300 stays ~300 ms total
+  [PASS] Release 1000 / Length 300 stays ~300 ms total
+     derived hold 24.3 ms, tau 75.2 ms
+  [PASS] default hold ~= 0.097 x 250 ms
+  [PASS] hold + 3 tau ~= the full 250 ms duck length
+
+2. PROCESSOR: parameter, presets, state
+  [PASS] duckLength parameter exists
+  [PASS] duckLength default is 250 ms
+  [PASS] duckLength range 50..1000 ms
+  [PASS] applying Micro Kick restores its 60 ms base length
+  [PASS] EDM Pump selection restores its 600 ms base length
+  [PASS] Default preset restores the 250 ms default length
+  [PASS] parameterChanged -> engine duck length sync (automation path)
+  [PASS] state round-trip restores duckLength (333 ms)
+  [PASS] restored state re-syncs the engine's duck length
+  [PASS] legacy v3 state loads with duckLength at default
+  [PASS] out-of-range duckLength (4000 ms) sanitised to default
+  [PASS] length change reaches the engine
+  [PASS] gesture-free restore (undo path) returns the engine to 150 ms
+
+3. GRAPH: view modes + preview + live data
+  [PASS] graph default view is SIDECHAIN
+  [PASS] processor produced graph frames
+  [PASS] beat triggers fired through the processor
+  [PASS] view switching does not advance/corrupt graph history
+  [PASS] view switching preserves reduction history bit-exactly
+  [PASS] view switching does not alter DSP state
+  [PASS] live frames carry real gain reduction (duck envelope)
+  [PASS] live frames carry beat triggerFired markers
+  [PASS] live frames carry the host BPM (beat-aware display)
+  [PASS] history with live data is NOT silent (live beats preview)
+  [PASS] fresh graph history is silent
+  [PASS] painting preview does not fabricate history
+  [PASS] preview depth grows with Amount
+  [PASS] setPreviewParams never fabricates history
+  [PASS] preview param changes keep history clean
+
+==============================
+42/42 checks passed. ALL TESTS PASSED
+==============================
+
+============================================================
+ BeatSchedulerTests
+============================================================
+  compiling BeatSchedulerTests.cpp ...
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChainer Beat Scheduler Tests (0.4.0)
+========================================
+
+1. Scheduler: sample-accurate quarter notes
+  [PASS] one trigger per quarter note over 2 s (got 5 of 5)
+  [PASS] beats land at exact quarter-note sample positions
+  [PASS] fractional PPQ anchors at the next integer beat, then advances one quarter per trigger
+
+2. Multi-beat blocks and boundary safety
+  [PASS] block spanning 2 beats fires both, at exact offsets
+  [PASS] quarter notes straddling block boundaries: no misses, no duplicates
+
+3. Transport jumps and loop restarts
+  [PASS] transport jump: no stale triggers from the old timeline
+  [PASS] loop restart re-anchors to the loop start
+
+4. Tempo change / BPM unavailable
+  [PASS] tempo change: beat grid follows the new BPM
+  [PASS] BPM unavailable -> no triggers (fail-safe)
+  [PASS] PPQ unavailable -> no triggers (fail-safe)
+
+5. Processor integration (real processBlock + play head)
+  [PASS] PLAY: beat-synchronised ducking occurs (deep + bounded)
+  [PASS] PLAY 2.2 s @120 BPM -> exactly 5 beat triggers (got 5)
+  [PASS] STOP: no triggers, output transparent (bit-identical path)
+  [PASS] RECORD: beat-synchronised ducking occurs
+  [PASS] four-beat window produces at least 4 ducks (got 5)
+  [PASS] main audio recovers between beat ducks
+  [PASS] stop->play restart resynchronizes (beat fires immediately)
+
+6. DUCK LENGTH drives audible duration (beats fixed)
+    [deep=0.175 deepLong=0.175]
+  [PASS] DUCK LENGTH min (50 ms) and max (1000 ms) both duck on beats
+
+==============================
+18/18 checks passed. ALL TESTS PASSED
+
+============================================================
+ ALL SUITES PASSED
+============================================================

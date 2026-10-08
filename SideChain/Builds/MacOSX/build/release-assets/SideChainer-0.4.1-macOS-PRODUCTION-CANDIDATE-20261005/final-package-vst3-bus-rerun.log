@@ -1,0 +1,13 @@
+VST3 factory loaded. Classes:
+  - SideChainer (Audio Module Class)
+  - SideChainer (Component Controller Class)
+  [PASS] IComponent instantiated
+Audio input buses: 1   Audio output buses: 1
+  [PASS] VST3 exposes exactly 1 audio input bus (main; aux removed in 0.4.0)
+  [PASS] VST3 exposes exactly 1 audio output bus
+  Input  bus 0: name='Input' channels=2 type=kMain defaultActive=yes
+  [PASS] input bus 0 is kMain stereo ('Input')
+  Output bus 0: name='Output' channels=2 type=kMain defaultActive=yes
+  [PASS] output bus 0 is kMain stereo ('Output')
+
+VST3 BUS CHECK PASSED (0 failure(s))

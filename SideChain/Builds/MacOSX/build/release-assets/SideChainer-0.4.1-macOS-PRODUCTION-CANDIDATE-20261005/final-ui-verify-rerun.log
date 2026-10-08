@@ -1,0 +1,66 @@
+In file included from ../JuceLibraryCode/include_juce_audio_processors.cpp:9:
+In file included from /Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/juce_audio_processors.cpp:211:
+/Users/martin/Documents/HISE/JUCE/modules/juce_audio_processors/utilities/juce_AudioProcessorValueTreeState.cpp:268:49: warning: unqualified call to 'std::move' [-Wunqualified-std-cast-call]
+  268 |             state->processor.addParameterGroup (move (group));
+      |                                                 ^
+      |                                                 std::
+1 warning generated.
+SideChain UI verification (0.2.1 fixes)
+  [PASS] editor size 800x520
+  [PASS] editor snapshot rendered
+  [PASS] editor background is pure black (got ff000000)
+  [PASS] editor bottom area is pure black (logo strip)
+  [PASS] Music-Prod logo artwork is rendered in the band
+  [PASS] logo contains ZERO red/orange pixels (got 0)
+  [PASS] logo artwork is pure white/neutral (no colourization)
+  [PASS] logo artwork width proportional to the 110px draw rect (got 93px)
+  [PASS] logo centred horizontally
+  [PASS] SideChainer wordmark rendered in header (bright glyph pixels: 576)
+  [PASS] preset prev-arrow glyph rendered
+  [PASS] preset next-arrow glyph rendered
+  [PASS] ducking-curve preview visible while graph is silent (mint px: 655)
+  [PASS] DUCK LENGTH knob/value/caption do NOT overlap the Music-Prod logo band
+  [PASS] AMOUNT knob does not overlap the logo band
+  [PASS] RELEASE knob does not overlap the logo band
+  [PASS] DUCK LENGTH knob does not overlap AMOUNT knob
+  [PASS] DUCK LENGTH knob does not overlap RELEASE knob
+  [PASS] DUCK LENGTH control fully inside the editor
+  [PASS] AMOUNT knob bounds are non-zero (got 96x96)
+  [PASS] DUCK LENGTH knob bounds are non-zero (got 76x76)
+  [PASS] RELEASE knob bounds are non-zero (got 64x64)
+  [PASS] AMOUNT knob renders its graphics (5493 px)
+  [PASS] DUCK LENGTH knob renders its graphics (3505 px)
+  [PASS] RELEASE knob renders its graphics (2532 px)
+  [PASS] lifecycle refresh does not create duplicate editor children
+  [PASS] all knobs remain visible in the same component hierarchy after hide/show and simulated wake gap
+  [PASS] graph rendering and preset display remain intact after lifecycle refresh
+  [PASS] lifecycle refresh preserves knob layout
+  [PASS] lifecycle refresh preserves knob values and APVTS parameter state
+  [PASS] all parameter value readouts remain populated after lifecycle refresh
+  [PASS] amount slider attachment still updates the APVTS parameter after refresh
+  [PASS] all knob painters still render after lifecycle refresh
+  [PASS] full editor snapshot contains all three knob graphics after lifecycle refresh
+  [PASS] clock rollback (sleep counter reset) also triggers safe lifecycle refresh
+  [PASS] move/visibility/hierarchy/scale callbacks refresh existing control layout safely
+  [PASS] INFO page laid out at full editor size
+  [PASS] INFO page has 8 controls (got 8)
+  [PASS] all 8 INFO controls visible with non-empty bounds
+  [PASS] INFO page background is pure black
+  [PASS] SideChainer wordmark rendered on INFO page (glyph pixels: 1436)
+  [PASS] startLinking -> LINKING (WAITING FOR APPROVAL)
+  [PASS] background approval -> SIGNED IN without any manual poll
+  [PASS] display name delivered from approval
+  [PASS] preview depth at 0% Amount is flat (got 0.0 dB)
+  [PASS] preview depth at 50% Amount is moderate (7.9 dB)
+  [PASS] preview depth at 100% Amount is deepest (24.0 dB)
+  [PASS] preview depth varies smoothly (shallow presets remain smooth)
+  [PASS] arrows: next from Default lands on first preset (Micro Kick)
+  [PASS] arrows: three nexts land on the third preset (Vocal Duck)
+  [PASS] arrows: next from last preset wraps to first
+  [PASS] arrows: prev from first preset wraps to last
+  [PASS] arrows: stepping from Custom lands on a factory preset
+  [PASS] arrows/dropdown share one identity source (Classic Kick exact match)
+
+==============================
+54/54 checks passed. UI VERIFICATION PASSED
+==============================

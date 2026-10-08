@@ -122,6 +122,11 @@ build_and_run PumpCurveDspTests PumpCurveDspTests.cpp \
     "$PH6_FLAGS" \
     "$PH6_TUS" "$GUI_FRAMEWORKS" || overall=1
 
+# 10. Phase E preset curve ownership and schema migration compatibility.
+build_and_run PumpCurvePresetStateTests PumpCurvePresetStateTests.cpp \
+    "$PH6_FLAGS" \
+    "$PH6_TUS" "$GUI_FRAMEWORKS" || overall=1
+
 # NOTE (0.4.0 architecture change): TriggerDSPTests and DetectorTests
 # exercised the REMOVED external sidechain transient detector and are
 # retired. Their protections (one trigger per event, no sustained ducking)

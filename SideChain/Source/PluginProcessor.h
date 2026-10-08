@@ -138,10 +138,11 @@ public:
     bool loadPumpCurveSnapshotForAudio (sid::curve::PumpCurve& curve) noexcept;
 
     //==========================================================================
-    // Presets. A preset is a named (depth, shape, base length) triple of
-    // existing user parameters (see PresetManager.h). Applying one sets the
-    // production parameters through the normal APVTS notification path
-    // (setValueNotifyingHost, with change-gesture bracketing so hosts see
+    // Presets. Each preset retains its named Amount/Shape/base Length values
+    // and carries a validated PumpCurve authored from those legacy envelope
+    // settings (see PresetManager.h). Applying one sets production
+    // parameters through the normal APVTS notification path (setValueNotifyingHost,
+    // with change-gesture bracketing so hosts see
     // one logical gesture); the DSP and graph follow automatically. The
     // user's DUCK LENGTH survives until the next preset selection (a
     // preset restores its factory base length - conventional template
@@ -188,15 +189,17 @@ private:
     //==========================================================================
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 
-    // Common preset-apply path: sets ALL preset parameters through the
-    // proper notification mechanism (message thread, host-visible gesture).
-    void applyPresetValues (float amountPercent, float releaseMs, float duckLengthMs);
+    // Common preset-apply path: sets all established parameters through the
+    // proper host-visible gesture, then installs the validated schema-6 curve.
+    void applyPresetValues (float amountPercent, float releaseMs, float duckLengthMs,
+                            const sid::curve::PumpCurve& curve);
 
     juce::AudioProcessorValueTreeState parameters;
 
     // Fixed-capacity editable model, owned by the state/control thread.
     sid::curve::PumpCurve pumpCurve_;
     sid::curve::StateMode curveStateMode_ = sid::curve::StateMode::pumpCurve;
+    int stateVersionForSave_ = 6; // Retain future versions; legacy mode normalizes to schema 5.
     mutable std::mutex curveModelMutex_; // control/state threads only, never audio
     std::mutex curveSnapshotWriterMutex_; // serializes snapshot publishers, never audio
 

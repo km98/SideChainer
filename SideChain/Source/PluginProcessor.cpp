@@ -27,7 +27,9 @@ namespace
     //   3 = 0.3.0     : + sidechainOffset PARAM
     //   4 = 0.3.0     : + duckLength PARAM
     //   5 = 0.4.0     : sidechainWhileStopped removed; presets own base length.
-    //   6 = Phase B   : optional PUMPCURVE subtree and Smooth parameter.
+    //   6 = Phase B/D : PUMPCURVE subtree and Smooth parameter. Legacy-mode
+    //                   states remain serialized at schema 5 until explicitly
+    //                   edited or reset into a PumpCurve.
     constexpr int kCurrentStateVersion = 6;
 }
 
@@ -104,7 +106,7 @@ SideChainAudioProcessor::createParameterLayout()
         0.0f));
 
     // Phase B model control: normalized smoothness amount, persisted with
-    // the existing parameters but intentionally not consumed by the DSP/UI.
+    // the existing parameters and used by curve rendering and DSP evaluation.
     layout.add (std::make_unique<juce::AudioParameterFloat> (
         "smooth",
         "Smooth",
@@ -206,7 +208,8 @@ void SideChainAudioProcessor::parameterChanged (const juce::String& parameterID,
 // Audio safety: the engine's envelope timing is re-derived on the message
 // thread and applied via coefficient writes that are per-sample safe.
 void SideChainAudioProcessor::applyPresetValues (float amountPercent, float releaseMs,
-                                                 float duckLengthMs)
+                                                 float duckLengthMs,
+                                                 const sid::curve::PumpCurve& curve)
 {
     auto* amountParam     = parameters.getParameter ("sidechainAmount");
     auto* releaseParam    = parameters.getParameter ("release");
@@ -226,6 +229,8 @@ void SideChainAudioProcessor::applyPresetValues (float amountPercent, float rele
     amountParam->endChangeGesture();
     releaseParam->endChangeGesture();
     duckLengthParam->endChangeGesture();
+
+    setPumpCurvePoints (curve.storage().data(), curve.size());
 }
 
 bool SideChainAudioProcessor::applyFactoryPreset (const juce::String& name)
@@ -234,14 +239,16 @@ bool SideChainAudioProcessor::applyFactoryPreset (const juce::String& name)
     if (preset == nullptr)
         return false;
 
-    applyPresetValues (preset->amountPercent, preset->releaseMs, preset->duckLengthMs);
+    applyPresetValues (preset->amountPercent, preset->releaseMs, preset->duckLengthMs,
+                       preset->pumpCurve);
     return true;
 }
 
 void SideChainAudioProcessor::applyDefaultPreset()
 {
+    const sid::curve::PumpCurve defaultCurve;
     applyPresetValues (50.0f, sid::dsp::DuckEngine::kReleaseDefaultMs,
-                       sid::dsp::DuckEngine::kDuckLengthDefaultMs);
+                       sid::dsp::DuckEngine::kDuckLengthDefaultMs, defaultCurve);
 }
 
 void SideChainAudioProcessor::stepPreset (int direction)
@@ -293,7 +300,8 @@ void SideChainAudioProcessor::stepPreset (int direction)
     if (target >= n)     target = 0;
 
     const auto& preset = table.getReference (target);
-    applyPresetValues (preset.amountPercent, preset.releaseMs, preset.duckLengthMs);
+    applyPresetValues (preset.amountPercent, preset.releaseMs, preset.duckLengthMs,
+                       preset.pumpCurve);
 }
 
 juce::String SideChainAudioProcessor::getCurrentPresetDisplayName() const
@@ -306,16 +314,24 @@ juce::String SideChainAudioProcessor::getCurrentPresetDisplayName() const
         parameters.getParameter ("duckLength"));
 
     if (amount != nullptr && release != nullptr && length != nullptr)
-        if (const auto* match = sid::presets::findMatchingPreset (
-                amount->get(), release->get(), length->get()))
+    {
+        const auto curve = getPumpCurve();
+        const bool hasAuthoredCurve = getCurveStateMode() == sid::curve::StateMode::pumpCurve;
+        const auto* match = hasAuthoredCurve
+            ? sid::presets::findMatchingPreset (amount->get(), release->get(), length->get(), curve)
+            : sid::presets::findMatchingPreset (amount->get(), release->get(), length->get());
+        if (match != nullptr)
             return match->name;
 
-    // Exactly the plugin defaults -> a "Default" identity is meaningful.
-    if (amount != nullptr && release != nullptr && length != nullptr
-        && std::abs (amount->get() - 50.0f) < 0.051f
-        && std::abs (release->get() - sid::dsp::DuckEngine::kReleaseDefaultMs) < 0.051f
-        && std::abs (length->get() - sid::dsp::DuckEngine::kDuckLengthDefaultMs) < 0.051f)
-        return "Default";
+        // Exactly the plugin defaults are meaningful regardless of whether
+        // they came from an older legacy state or the canonical curve state.
+        if (std::abs (amount->get() - 50.0f) < 0.051f
+            && std::abs (release->get() - sid::dsp::DuckEngine::kReleaseDefaultMs) < 0.051f
+            && std::abs (length->get() - sid::dsp::DuckEngine::kDuckLengthDefaultMs) < 0.051f
+            && (! hasAuthoredCurve
+                || sid::presets::samePumpCurve (curve, sid::curve::PumpCurve())))
+            return "Default";
+    }
 
     return "Custom";
 }
@@ -597,14 +613,21 @@ void SideChainAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     }
 
     auto state = parameters.copyState();
-    state.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
     sid::curve::PumpCurve savedCurve;
     sid::curve::StateMode savedCurveMode;
+    int versionForSave = kCurrentStateVersion;
     {
         const std::lock_guard<std::mutex> lock (curveModelMutex_);
         savedCurve = pumpCurve_;
         savedCurveMode = curveStateMode_;
+        versionForSave = stateVersionForSave_;
     }
+    // Keep legacy-mode snapshots explicitly at schema 5 instead of emitting
+    // a schema-6 state without its required curve and relying on fallback.
+    if (savedCurveMode == sid::curve::StateMode::legacy
+        && versionForSave <= kCurrentStateVersion)
+        versionForSave = 5;
+    state.setProperty ("stateVersion", versionForSave, nullptr);
     for (int i = state.getNumChildren(); --i >= 0;)
         if (state.getChild (i).hasType ("PUMPCURVE"))
             state.removeChild (i, nullptr);
@@ -758,6 +781,8 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
     const auto versionValue = tree.getProperty ("stateVersion");
     if (versionValue.isInt())
         savedVersion = (int) versionValue;
+    if (savedVersion < 1)
+        savedVersion = 1;
     sid::curve::PumpCurve loadedCurve;
     const bool curveValid = savedVersion >= 6 && readPumpCurve (tree, loadedCurve);
     {
@@ -765,6 +790,8 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
         curveStateMode_ = curveValid ? sid::curve::StateMode::pumpCurve
                                      : sid::curve::StateMode::legacy;
         pumpCurve_ = curveValid ? loadedCurve : sid::curve::PumpCurve();
+        stateVersionForSave_ = savedVersion > kCurrentStateVersion
+            ? savedVersion : (curveValid ? kCurrentStateVersion : 5);
     }
 
     // Remove curve data after validation: only the fixed-capacity model is
@@ -774,10 +801,14 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
             tree.removeChild (i, nullptr);
 
     // The APVTS root remains unchanged; its state tree tolerates other
-    // unknown children. Stamp a missing version; future states' recognized
-    // parameters still load.
+    // unknown children. A missing version is treated as legacy schema 1.
     if (! tree.hasProperty ("stateVersion"))
-        tree.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
+    {
+        savedVersion = 1;
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        stateVersionForSave_ = 1;
+        tree.setProperty ("stateVersion", savedVersion, nullptr);
+    }
 
     parameters.replaceState (tree);
 
@@ -813,6 +844,7 @@ bool SideChainAudioProcessor::setPumpCurvePoints (const sid::curve::Point* point
         if (! pumpCurve_.trySetPoints (points, count))
             return false;
         curveStateMode_ = sid::curve::StateMode::pumpCurve;
+        stateVersionForSave_ = kCurrentStateVersion;
     }
     publishPumpCurveSnapshot();
     return true;

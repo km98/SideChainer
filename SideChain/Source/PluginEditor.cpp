@@ -259,9 +259,11 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     analyzerViewButton.setTooltip ("Signal analyzer (input / sidechain / duck / output)");
     sidechainViewButton.onClick = [this] { selectView (GraphComponent::ViewMode::sidechain); };
     analyzerViewButton.onClick  = [this] { selectView (GraphComponent::ViewMode::analyzer); };
-    addAndMakeVisible (sidechainViewButton);
-    addAndMakeVisible (analyzerViewButton);
-    selectView (GraphComponent::ViewMode::sidechain);   // DEFAULT view
+    // Phase C replaces the old analyzer/legacy preview in the editor with
+    // the persistent PumpCurve canvas. Keep the fields/selection helper for
+    // source compatibility, but do not expose misleading display tabs.
+    sidechainViewButton.setVisible (false);
+    analyzerViewButton.setVisible (false);
 
     // PRIMARY control: SIDECHAIN AMOUNT
     amountKnob.setTooltip ("Ducking intensity - how much the main signal ducks");
@@ -315,12 +317,39 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     duckLengthValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
     duckLengthValueLabel.setJustificationType (juce::Justification::centred);
 
-    duckLengthCaption.setText ("DUCK LENGTH", juce::dontSendNotification);
+    duckLengthCaption.setText ("TIME", juce::dontSendNotification);
     duckLengthCaption.setFont (juce::Font (11.0f, juce::Font::plain));
     duckLengthCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
     duckLengthCaption.setJustificationType (juce::Justification::centred);
 
+    smoothSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    smoothSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
+    smoothSlider.setRange (0.0, 100.0, 0.1);
+    smoothSlider.setColour (juce::Slider::trackColourId, juce::Colour (kKnobTrack));
+    smoothSlider.setColour (juce::Slider::thumbColourId, juce::Colour (kAccent));
+    smoothSlider.setTooltip ("Curve smoothness (visual only in this version)");
+    smoothAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
+        processorRef.getParameters(), "smooth", smoothSlider);
+    smoothValueLabel.setFont (juce::Font (13.0f, juce::Font::bold));
+    smoothValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
+    smoothValueLabel.setJustificationType (juce::Justification::centred);
+    smoothValueLabel.setInterceptsMouseClicks (false, false);
+    smoothCaption.setText ("SMOOTH", juce::dontSendNotification);
+    smoothCaption.setFont (juce::Font (10.0f));
+    smoothCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
+    smoothCaption.setJustificationType (juce::Justification::centred);
+    smoothCaption.setInterceptsMouseClicks (false, false);
+
+    graph.setCurve (processorRef.getPumpCurve(), processorRef.getCurveStateMode());
+    graph.setHistoryDisplayEnabled (false); // graph is now a curve editor, never an audio-history view
+    graph.setCurveChangedCallback ([this] (const sid::curve::PumpCurve& curve)
+    {
+        return processorRef.setPumpCurvePoints (curve.storage().data(), curve.size());
+    });
     addAndMakeVisible (graph);
+    addAndMakeVisible (smoothSlider);
+    addAndMakeVisible (smoothValueLabel);
+    addAndMakeVisible (smoothCaption);
     addAndMakeVisible (amountValueLabel);
     addAndMakeVisible (amountCaption);
     addAndMakeVisible (duckLengthValueLabel);
@@ -373,9 +402,13 @@ void SideChainAudioProcessorEditor::refreshRenderingAfterLifecycleChange()
         amountCaption.repaint();
         duckLengthValueLabel.repaint();
         duckLengthCaption.repaint();
+        smoothSlider.repaint();
+        smoothValueLabel.repaint();
+        smoothCaption.repaint();
         releaseValueLabel.repaint();
         releaseCaption.repaint();
         graph.repaint();
+        graph.toFront (false);
         presetBox.repaint();
         offsetValueLabel.repaint();
         offsetCaption.repaint();
@@ -419,8 +452,8 @@ void SideChainAudioProcessorEditor::showMainView()
     offsetNextButton.setVisible (true);
     offsetValueLabel.setVisible (true);
     offsetCaption.setVisible (true);
-    sidechainViewButton.setVisible (true);
-    analyzerViewButton.setVisible (true);
+    sidechainViewButton.setVisible (false);
+    analyzerViewButton.setVisible (false);
     amountKnob.setVisible (true);
     duckLengthKnob.setVisible (true);
     releaseKnob.setVisible (true);
@@ -428,6 +461,9 @@ void SideChainAudioProcessorEditor::showMainView()
     amountCaption.setVisible (true);
     duckLengthValueLabel.setVisible (true);
     duckLengthCaption.setVisible (true);
+    smoothSlider.setVisible (true);
+    smoothValueLabel.setVisible (true);
+    smoothCaption.setVisible (true);
     releaseValueLabel.setVisible (true);
     releaseCaption.setVisible (true);
     infoButton.setVisible (true);
@@ -455,6 +491,9 @@ void SideChainAudioProcessorEditor::showInfoView()
     amountCaption.setVisible (false);
     duckLengthValueLabel.setVisible (false);
     duckLengthCaption.setVisible (false);
+    smoothSlider.setVisible (false);
+    smoothValueLabel.setVisible (false);
+    smoothCaption.setVisible (false);
     releaseValueLabel.setVisible (false);
     releaseCaption.setVisible (false);
     infoButton.setVisible (false);
@@ -615,6 +654,9 @@ void SideChainAudioProcessorEditor::timerCallback()
     const auto duckLength = duckLengthKnob.getValue();
     duckLengthValueLabel.setText (juce::String (std::round (duckLength / 10.0) * 10.0, 0) + " ms",
                                   juce::dontSendNotification);
+    smoothValueLabel.setText (juce::String ((int) std::round (smoothSlider.getValue())) + "%",
+                              juce::dontSendNotification);
+    graph.setCurve (processorRef.getPumpCurve(), processorRef.getCurveStateMode());
 
     // Keep the preset identity and offset readout in sync with the LIVE
     // values (covers host automation, undo, state restore and manual edits).
@@ -690,22 +732,18 @@ void SideChainAudioProcessorEditor::resized()
                                  .withY (offsetValueLabel.getBottom() + 1));
     area.removeFromTop (12); // room for the offset caption
 
-    // ---- Bottom reservation: logo strip occupies one 28 px band, the
-    // three-knob control row gets its own clearly separated space above it.
-    // (Layout defect fix: DUCK LENGTH's value/caption previously ran into
-    // the Music-Prod logo band; now every control owns exclusive space.)
+    // ---- Bottom reservation: logo strip occupies one 28 px band.
     auto bottomBand = area.removeFromBottom (28);
     logoArea = juce::Rectangle<int> (220, 26).withCentre (bottomBand.getCentre());
 
-    // ---- Control row: three knobs, each guaranteed knob + value + caption
-    // inside the remaining space (label/caption heights are budgeted below
-    // each knob; the row cannot reach the logo band).
+    // ---- Legacy control row remains below the graph; TIME keeps the
+    // existing Duck Length control/automation identity.
     // NOTE (knob-invisibility defect fix): knob rects MUST be constructed
     // directly at their target position (x, y, w, h). The previous code
     // built them at (0,0) and called withTop(y), which keeps the BOTTOM edge
     // and collapses the height to 0 - knobs became invisible while labels
     // (explicit heights) stayed visible.
-    auto controlArea = area.removeFromBottom (152);
+    auto controlArea = area.removeFromBottom (160);
     controlArea.removeFromTop (6);
     const int captionH = 16, valueH = 22;
     const int knobMax = controlArea.getHeight() - valueH - captionH - 4;
@@ -744,6 +782,7 @@ void SideChainAudioProcessorEditor::resized()
     duckLengthCaption.setBounds (duckLenBounds.getX() - 40,
                                  duckLengthValueLabel.getBottom(),
                                  duckLenBounds.getWidth() + 40, captionH);
+    duckLengthCaption.setText ("TIME", juce::dontSendNotification);
 
     releaseValueLabel.setBounds (releaseBounds.getX() - 40,
                                  releaseBounds.getBottom() + 2,
@@ -752,8 +791,22 @@ void SideChainAudioProcessorEditor::resized()
                               releaseValueLabel.getBottom(),
                               releaseBounds.getWidth() + 40, captionH);
 
-    // Graph: everything above the control row (dominant element again).
+    auto smoothRow = area.removeFromBottom (28);
+    smoothCaption.setText ("SMOOTH", juce::dontSendNotification);
+    smoothCaption.setBounds (smoothRow.removeFromLeft (72));
+    smoothValueLabel.setBounds (smoothRow.removeFromRight (44));
+    smoothSlider.setBounds (smoothRow.reduced (4, 7));
+
+    // Graph: everything above the controls is the dominant interactive area.
     graph.setBounds (area);
+    graph.toFront (false);
+}
+
+void SideChainAudioProcessorEditor::mouseDown (const juce::MouseEvent& event)
+{
+    if (event.mods.isRightButtonDown() && graph.isVisible()
+        && graph.getBounds().contains (event.getPosition()))
+        graph.resetCurve();
 }
 
 void SideChainAudioProcessorEditor::paintOverChildren (juce::Graphics& g)

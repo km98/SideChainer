@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <string>
 #include <cstdlib>
+#include <limits>
 
 static int checks = 0, failures = 0;
 static void check (bool ok, const std::string& label)
@@ -45,7 +46,16 @@ struct SideChainEditorTestAccess
     static juce::ComboBox& presetBox (SideChainAudioProcessorEditor& e) { return e.presetBox; }
     static juce::Label& amountValueLabel (SideChainAudioProcessorEditor& e) { return e.amountValueLabel; }
     static juce::Label& duckLengthValueLabel (SideChainAudioProcessorEditor& e) { return e.duckLengthValueLabel; }
+    static juce::Label& duckLengthCaption (SideChainAudioProcessorEditor& e) { return e.duckLengthCaption; }
+    static juce::Slider& smoothSlider (SideChainAudioProcessorEditor& e) { return e.smoothSlider; }
+    static juce::Label& smoothCaption (SideChainAudioProcessorEditor& e) { return e.smoothCaption; }
+    static juce::Label& smoothValueLabel (SideChainAudioProcessorEditor& e) { return e.smoothValueLabel; }
     static juce::Label& releaseValueLabel (SideChainAudioProcessorEditor& e) { return e.releaseValueLabel; }
+    static bool setEditorSize (SideChainAudioProcessorEditor& e, int width, int height)
+    {
+        e.setSize (width, height);
+        return e.getWidth() == width && e.getHeight() == height;
+    }
     static void simulateWakeGap (SideChainAudioProcessorEditor& e, bool simulateClockRollback = false)
     {
         e.lastTimerCallbackTimeMs = juce::Time::currentTimeMillis()
@@ -148,9 +158,9 @@ int main()
                 }
             }
         }
-        auto px = img.getPixelAt (400, 250); // mid-field, clear of controls
+        auto px = img.getPixelAt (400, 40); // header black field, clear of wordmark/buttons
         check (px == juce::Colour (0xff000000),
-               "editor background is pure black (got " + px.toString().toStdString() + ")");
+               "editor background is pure black outside the graph (got " + px.toString().toStdString() + ")");
         auto px2 = img.getPixelAt (10, 510);
         check (px2 == juce::Colour (0xff000000),
                "editor bottom area is pure black (logo strip)");
@@ -217,7 +227,7 @@ int main()
                         ++glyphPixels;
                 }
             check (glyphPixels > 100,
-                   "SideChainer wordmark rendered in header (bright glyph pixels: "
+                   "PumpCurve wordmark rendered in header (bright glyph pixels: "
                        + juce::String (glyphPixels).toStdString() + ")");
         }
 
@@ -272,7 +282,11 @@ int main()
             check (! rectsOverlap (SideChainEditorTestAccess::duckLengthKnobRect (editor), logoBand)
                        && ! rectsOverlap (SideChainEditorTestAccess::duckLengthValueRect (editor), logoBand)
                        && ! rectsOverlap (SideChainEditorTestAccess::duckLengthCaptionRect (editor), logoBand),
-                   "DUCK LENGTH knob/value/caption do NOT overlap the Music-Prod logo band");
+                   "TIME knob/value/caption do NOT overlap the Music-Prod logo band");
+            check (SideChainEditorTestAccess::smoothSlider (editor).isVisible()
+                       && SideChainEditorTestAccess::smoothCaption (editor).getBounds().getHeight() > 0
+                       && SideChainEditorTestAccess::smoothSlider (editor).getBounds().getWidth() > 100,
+                   "SMOOTH control is visible beneath the graph");
             check (! rectsOverlap (SideChainEditorTestAccess::amountKnobRect (editor), logoBand),
                    "AMOUNT knob does not overlap the logo band");
             check (! rectsOverlap (SideChainEditorTestAccess::releaseKnobRect (editor), logoBand),
@@ -366,8 +380,11 @@ int main()
                    "lifecycle refresh preserves knob values and APVTS parameter state");
             check (SideChainEditorTestAccess::amountValueLabel (editor).getText().isNotEmpty()
                        && SideChainEditorTestAccess::duckLengthValueLabel (editor).getText().isNotEmpty()
+                       && SideChainEditorTestAccess::smoothValueLabel (editor).getText().isNotEmpty()
                        && SideChainEditorTestAccess::releaseValueLabel (editor).getText().isNotEmpty(),
                    "all parameter value readouts remain populated after lifecycle refresh");
+            check (paintedPixelCount (SideChainEditorTestAccess::graph (editor)) > 1000,
+                   "PumpCurve remains rendered after lifecycle refresh");
 
             auto* amountParam = dynamic_cast<juce::AudioParameterFloat*> (
                 proc.getParameters().getParameter ("sidechainAmount"));
@@ -425,6 +442,161 @@ int main()
         // Leave the unit-test editor at its original identity scale for later checks.
         editor.setScaleFactor (1.0f);
         }
+    }
+
+    // ---- 1b. PumpCurve graph editing, constraints, persistence, controls --
+    {
+        SideChainAudioProcessor proc;
+        SideChainAudioProcessorEditor editor (proc);
+        auto& graph = SideChainEditorTestAccess::graph (editor);
+        auto plot = graph.plotBoundsForTest();
+        auto curveEquals = [] (const sid::curve::PumpCurve& a, const sid::curve::PumpCurve& b)
+        {
+            if (a.size() != b.size()) return false;
+            for (std::size_t i = 0; i < a.size(); ++i)
+                if (a[i].x != b[i].x || a[i].y != b[i].y) return false;
+            return true;
+        };
+        check (graph.getCurve().size() == 6 && paintedPixelCount (graph) > 1000,
+               "default PumpCurve renders in the primary graph");
+        check (graph.getWidth() > 300 && graph.getHeight() > 120
+                   && plot.getWidth() > 250.0f && plot.getHeight() > 70.0f,
+               "curve plot uses a large deterministic resize-safe graph area");
+
+        const auto defaultCurve = graph.getCurve();
+        const auto leftEnd = juce::Point<float> (plot.getX(), plot.getY());
+        check (graph.hitTestPoint (leftEnd) == 0
+                   && ! graph.selectPointAt ({ plot.getX() + plot.getWidth() * 0.5f,
+                                               plot.getY() + plot.getHeight() * 0.5f }),
+               "point hit-testing distinguishes handles from empty graph area");
+        graph.selectPointAt ({ plot.getX() + (float) defaultCurve[2].x * plot.getWidth(),
+                               plot.getY() + (float) (1.0 - defaultCurve[2].y) * plot.getHeight() });
+        const int selectedInterior = graph.getSelectedPointIndex();
+        check (selectedInterior == 2, "interior curve control point can be selected");
+        auto renderGraph = [&]
+        {
+            juce::Image image (juce::Image::ARGB, graph.getWidth(), graph.getHeight(), true);
+            juce::Graphics graphics (image);
+            graph.paint (graphics);
+            return image;
+        };
+        graph.selectPointAt ({ -50.0f, -50.0f });
+        const auto unselectedImage = renderGraph();
+        graph.selectPointAt ({ plot.getX() + (float) defaultCurve[2].x * plot.getWidth(),
+                               plot.getY() + (float) (1.0 - defaultCurve[2].y) * plot.getHeight() });
+        const auto selectedImage = renderGraph();
+        const auto selectionCentre = graph.getCurve()[2];
+        const int haloX = juce::roundToInt (plot.getX() + (float) selectionCentre.x * plot.getWidth()) + 8;
+        const int haloY = juce::roundToInt (plot.getY() + (float) (1.0 - selectionCentre.y) * plot.getHeight());
+        check (unselectedImage.getPixelAt (haloX, haloY) != selectedImage.getPixelAt (haloX, haloY),
+               "selected control point has distinct visible feedback");
+
+        if (selectedInterior == 2)
+        {
+            const double spacing = sid::curve::PumpCurve::kMinimumSpacing;
+            const auto before = graph.getCurve();
+            const bool moved = graph.moveSelectedPointTo (1.0, -0.25);
+            const auto& movedCurve = graph.getCurve();
+            check (moved && movedCurve[2].x <= movedCurve[3].x - spacing + 1.0e-12
+                       && movedCurve[2].x > before[2].x
+                       && movedCurve[2].y == 0.0,
+                   "interior drag clamps x to neighbor spacing and y to normalized range");
+            check (graph.getCurveStateMode() == sid::curve::StateMode::pumpCurve,
+                   "interior curve edit updates persisted processor curve state");
+        }
+        const auto endpointBefore = graph.getCurve()[0];
+        graph.selectPointAt ({ plot.getX(), plot.getY() });
+        check (graph.getSelectedPointIndex() == 0
+                   && ! graph.moveSelectedPointTo (0.8, 0.3)
+                   && graph.getCurve()[0].x == endpointBefore.x
+                   && graph.getCurve()[0].y == endpointBefore.y
+                   && ! graph.deleteSelectedPoint(),
+               "endpoint is selectable but cannot move or delete");
+
+        const auto current = graph.getCurve();
+        const auto curveBeforeInsert = graph.getCurve();
+        const double insertX = (current[1].x + current[2].x) * 0.5;
+        const double insertY = 0.42;
+        const bool inserted = graph.insertPointAt (insertX, insertY);
+        check (inserted && graph.getCurve().size() == current.size() + 1
+                   && graph.getSelectedPointIndex() == 2,
+               "insertion adds a selected point in sorted order");
+        if (inserted)
+        {
+            check (graph.deleteSelectedPoint() && curveEquals (graph.getCurve(), curveBeforeInsert),
+                   "deleting selected interior point restores the prior valid curve");
+        }
+        const auto beforeInvalid = graph.getCurve();
+        check (! graph.insertPointAt (beforeInvalid[1].x + 0.5 * sid::curve::PumpCurve::kMinimumSpacing, 0.5)
+                   && ! graph.insertPointAt (std::numeric_limits<double>::quiet_NaN(), 0.5)
+                   && curveEquals (graph.getCurve(), beforeInvalid),
+               "invalid and too-close point insertions are rejected without mutation");
+
+        // Exercise 2/16 point limits on-screen and reject point 17.
+        const sid::curve::Point twoPoints[] = {{ 0.0, 1.0 }, { 1.0, 1.0 }};
+        sid::curve::PumpCurve twoPointCurve;
+        check (twoPointCurve.trySetPoints (twoPoints, 2), "two-point graph fixture is valid");
+        graph.setCurve (twoPointCurve);
+        check (graph.getCurve().size() == 2 && paintedPixelCount (graph) > 1000,
+               "graph remains rendered with the minimum two points");
+        sid::curve::Point sixteenPoints[16] {};
+        for (int i = 0; i < 16; ++i)
+            sixteenPoints[i] = { (double) i / 15.0, (double) (i % 3) / 2.0 };
+        sixteenPoints[0].y = sixteenPoints[15].y = 1.0;
+        sid::curve::PumpCurve sixteenPointCurve;
+        check (sixteenPointCurve.trySetPoints (sixteenPoints, 16), "sixteen-point graph fixture is valid");
+        graph.setCurve (sixteenPointCurve);
+        check (graph.getCurve().size() == 16 && ! graph.insertPointAt (0.5, 0.5),
+               "graph supports 16 points and rejects a seventeenth");
+
+        // Reset is a visible button and a deterministic state/model operation.
+        graph.resetButtonForTest().onClick();
+        check (curveEquals (graph.getCurve(), sid::curve::PumpCurve())
+                   && curveEquals (proc.getPumpCurve(), sid::curve::PumpCurve()),
+               "RESET restores and persists the deterministic default curve");
+
+        // Editing survives processor state serialization and reload.
+        auto persisted = graph.getCurve();
+        graph.selectPointAt ({ plot.getX() + (float) persisted[1].x * plot.getWidth(),
+                               plot.getY() + (float) (1.0 - persisted[1].y) * plot.getHeight() });
+        const bool edited = graph.moveSelectedPointTo (persisted[1].x + 0.03, persisted[1].y - 0.05);
+        const auto editedCurve = graph.getCurve();
+        juce::MemoryBlock state;
+        proc.getStateInformation (state);
+        SideChainAudioProcessor reloaded;
+        reloaded.setStateInformation (state.getData(), (int) state.getSize());
+        check (edited && curveEquals (graph.getCurve(), reloaded.getPumpCurve()),
+               "edited curve survives save and state reload");
+
+        // TIME/SMOOTH captions and attachments retain their expected IDs.
+        auto* timeParam = proc.getParameters().getParameter ("duckLength");
+        auto* smoothParam = proc.getParameters().getParameter ("smooth");
+        auto& timeKnob = SideChainEditorTestAccess::duckLengthKnob (editor);
+        timeKnob.setValue (400.0, juce::sendNotificationSync);
+        check (timeParam != nullptr && smoothParam != nullptr
+                   && SideChainEditorTestAccess::duckLengthCaption (editor).getText() == "TIME"
+                   && SideChainEditorTestAccess::smoothCaption (editor).getText() == "SMOOTH"
+                   && std::abs (timeParam->getValue() - timeParam->convertTo0to1 (400.0f)) < 0.001f,
+               "TIME keeps duckLength attachment and SMOOTH uses the smooth parameter");
+        SideChainEditorTestAccess::smoothSlider (editor).setValue (72.0, juce::sendNotificationSync);
+        check (std::abs (smoothParam->getValue() - smoothParam->convertTo0to1 (72.0f)) < 0.001f,
+               "SMOOTH slider attachment updates only the smooth parameter");
+        auto* releaseParam = proc.getParameters().getParameter ("release");
+        const float releaseBefore = releaseParam->getValue();
+
+        // Resize and hide/show/wake retain the edited curve and repaint path.
+        SideChainEditorTestAccess::setEditorSize (editor, 900, 600);
+        const auto resizedPlot = graph.plotBoundsForTest();
+        const bool resizedBounds = graph.getWidth() > 500 && graph.getHeight() > 200
+            && resizedPlot.getWidth() > plot.getWidth();
+        editor.setVisible (false);
+        editor.setVisible (true);
+        SideChainEditorTestAccess::simulateWakeGap (editor);
+        const bool releaseWasNotRepurposed = std::abs (releaseParam->getValue() - releaseBefore) < 1.0e-6f;
+        check (resizedBounds && curveEquals (graph.getCurve(), editedCurve)
+                   && paintedPixelCount (graph) > 1000
+                   && std::abs (releaseParam->getValue() - releaseBefore) < 1.0e-6f,
+               "resize and lifecycle repaint preserve curve and legacy Release parameter");
     }
 
     // ---- 2/3. INFO page controls in default (signed-out) state ------------

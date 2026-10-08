@@ -45,7 +45,285 @@ namespace
 GraphComponent::GraphComponent()
 {
     setOpaque (true);
+    setWantsKeyboardFocus (true);
+    setMouseClickGrabsKeyboardFocus (true);
+    resetButton_.setTooltip ("Restore the default PumpCurve");
+    resetButton_.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff15181e));
+    resetButton_.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffb8d8cf));
+    resetButton_.onClick = [this] { resetCurve(); };
+    addAndMakeVisible (resetButton_);
     resetHistory();
+}
+
+juce::Rectangle<float> GraphComponent::curvePlotBounds() const noexcept
+{
+    auto bounds = getLocalBounds().toFloat().reduced (18.0f, 16.0f);
+    bounds.removeFromTop (14.0f);
+    return bounds;
+}
+
+void GraphComponent::resized()
+{
+    resetButton_.setBounds (getWidth() - 70, 2, 54, 20);
+    repaint();
+}
+
+juce::Point<float> GraphComponent::pointToPosition (const sid::curve::Point& point) const noexcept
+{
+    const auto plot = curvePlotBounds();
+    return { plot.getX() + (float) point.x * plot.getWidth(),
+             plot.getY() + (float) (1.0 - point.y) * plot.getHeight() };
+}
+
+juce::Point<double> GraphComponent::positionToNormalised (juce::Point<float> position) const noexcept
+{
+    const auto plot = curvePlotBounds();
+    if (plot.getWidth() <= 0.0f || plot.getHeight() <= 0.0f)
+        return {};
+    return { juce::jlimit (0.0, 1.0, (double) (position.x - plot.getX()) / plot.getWidth()),
+             juce::jlimit (0.0, 1.0, 1.0 - (double) (position.y - plot.getY()) / plot.getHeight()) };
+}
+
+void GraphComponent::setCurve (const sid::curve::PumpCurve& curve, sid::curve::StateMode mode)
+{
+    if (! sid::curve::PumpCurve::isValid (curve.storage().data(), curve.size()))
+        return;
+    bool unchanged = mode == curveMode_ && curve.size() == curve_.size();
+    for (std::size_t i = 0; unchanged && i < curve.size(); ++i)
+        unchanged = curve[i].x == curve_[i].x && curve[i].y == curve_[i].y;
+    if (unchanged)
+        return;
+
+    curve_ = curve;
+    curveMode_ = mode;
+    if (selectedPoint_ >= (int) curve_.size())
+        selectedPoint_ = -1;
+    repaint();
+}
+
+bool GraphComponent::commitCurve (const sid::curve::PumpCurve& candidate) noexcept
+{
+    if (! sid::curve::PumpCurve::isValid (candidate.storage().data(), candidate.size()))
+        return false;
+    if (curveChanged_ && ! curveChanged_ (candidate))
+        return false;
+    curve_ = candidate;
+    curveMode_ = sid::curve::StateMode::pumpCurve;
+    repaint();
+    return true;
+}
+
+void GraphComponent::resetCurve()
+{
+    sid::curve::PumpCurve defaults;
+    if (commitCurve (defaults))
+    {
+        selectedPoint_ = -1;
+        draggingPoint_ = false;
+        repaint();
+    }
+}
+
+int GraphComponent::hitTestPoint (juce::Point<float> position) const noexcept
+{
+    const float radiusSquared = kPointHitRadius * kPointHitRadius;
+    int best = -1;
+    float bestDistance = radiusSquared;
+    for (std::size_t i = 0; i < curve_.size(); ++i)
+    {
+        const auto delta = pointToPosition (curve_[i]) - position;
+        const float distance = delta.x * delta.x + delta.y * delta.y;
+        if (distance <= bestDistance)
+        {
+            best = (int) i;
+            bestDistance = distance;
+        }
+    }
+    return best;
+}
+
+bool GraphComponent::selectPointAt (juce::Point<float> position) noexcept
+{
+    selectedPoint_ = hitTestPoint (position);
+    repaint();
+    return selectedPoint_ >= 0;
+}
+
+bool GraphComponent::moveSelectedPointTo (double x, double y) noexcept
+{
+    if (selectedPoint_ <= 0 || selectedPoint_ >= (int) curve_.size() - 1
+        || ! std::isfinite (x) || ! std::isfinite (y))
+        return false;
+
+    const auto spacing = sid::curve::PumpCurve::kMinimumSpacing;
+    const double minX = curve_[(std::size_t) selectedPoint_ - 1].x + spacing;
+    const double maxX = curve_[(std::size_t) selectedPoint_ + 1].x - spacing;
+    if (minX > maxX)
+        return false;
+
+    sid::curve::Point proposed[sid::curve::PumpCurve::kMaximumPoints] {};
+    for (std::size_t i = 0; i < curve_.size(); ++i)
+        proposed[i] = curve_[i];
+    proposed[selectedPoint_] = { juce::jlimit (minX, maxX, x), juce::jlimit (0.0, 1.0, y) };
+
+    sid::curve::PumpCurve candidate;
+    return candidate.trySetPoints (proposed, curve_.size()) && commitCurve (candidate);
+}
+
+bool GraphComponent::insertPointAt (double x, double y) noexcept
+{
+    if (! std::isfinite (x) || ! std::isfinite (y)
+        || curve_.size() >= sid::curve::PumpCurve::kMaximumPoints)
+        return false;
+
+    const auto spacing = sid::curve::PumpCurve::kMinimumSpacing;
+    x = juce::jlimit (0.0, 1.0, x);
+    y = juce::jlimit (0.0, 1.0, y);
+    std::size_t insertion = 1;
+    while (insertion < curve_.size() - 1 && curve_[insertion].x < x)
+        ++insertion;
+    if (x - curve_[insertion - 1].x < spacing || curve_[insertion].x - x < spacing)
+        return false;
+
+    sid::curve::Point proposed[sid::curve::PumpCurve::kMaximumPoints] {};
+    for (std::size_t i = 0; i < insertion; ++i)
+        proposed[i] = curve_[i];
+    proposed[insertion] = { x, y };
+    for (std::size_t i = insertion; i < curve_.size(); ++i)
+        proposed[i + 1] = curve_[i];
+
+    sid::curve::PumpCurve candidate;
+    if (! candidate.trySetPoints (proposed, curve_.size() + 1) || ! commitCurve (candidate))
+        return false;
+    selectedPoint_ = (int) insertion;
+    grabKeyboardFocus();
+    return true;
+}
+
+bool GraphComponent::deleteSelectedPoint() noexcept
+{
+    if (selectedPoint_ <= 0 || selectedPoint_ >= (int) curve_.size() - 1)
+        return false;
+
+    const auto removed = (std::size_t) selectedPoint_;
+    sid::curve::Point proposed[sid::curve::PumpCurve::kMaximumPoints] {};
+    for (std::size_t src = 0, dst = 0; src < curve_.size(); ++src)
+        if (src != removed)
+            proposed[dst++] = curve_[src];
+
+    sid::curve::PumpCurve candidate;
+    if (! candidate.trySetPoints (proposed, curve_.size() - 1) || ! commitCurve (candidate))
+        return false;
+    selectedPoint_ = juce::jmin (selectedPoint_, (int) curve_.size() - 2);
+    repaint();
+    return true;
+}
+
+void GraphComponent::mouseDown (const juce::MouseEvent& event)
+{
+    grabKeyboardFocus();
+    const int hit = hitTestPoint (event.position);
+    if (event.mods.isRightButtonDown())
+    {
+        selectedPoint_ = hit;
+        if (hit > 0 && hit < (int) curve_.size() - 1)
+            deleteSelectedPoint();
+        else
+            repaint();
+        return;
+    }
+    selectedPoint_ = hit;
+    draggingPoint_ = hit > 0 && hit < (int) curve_.size() - 1;
+    repaint();
+}
+
+void GraphComponent::mouseDrag (const juce::MouseEvent& event)
+{
+    if (! draggingPoint_)
+        return;
+    const auto normalised = positionToNormalised (event.position);
+    moveSelectedPointTo (normalised.x, normalised.y);
+}
+
+void GraphComponent::mouseUp (const juce::MouseEvent&)
+{
+    draggingPoint_ = false;
+}
+
+void GraphComponent::mouseDoubleClick (const juce::MouseEvent& event)
+{
+    if (hitTestPoint (event.position) < 0)
+    {
+        const auto normalised = positionToNormalised (event.position);
+        insertPointAt (normalised.x, normalised.y);
+    }
+}
+
+bool GraphComponent::keyPressed (const juce::KeyPress& key)
+{
+    if (key == juce::KeyPress::deleteKey || key == juce::KeyPress::backspaceKey)
+        return deleteSelectedPoint();
+    if (key == juce::KeyPress ('r', juce::ModifierKeys(), 0))
+    {
+        resetCurve();
+        return true;
+    }
+
+    const double stepX = sid::curve::PumpCurve::kMinimumSpacing;
+    constexpr double stepY = 0.02;
+    if (key == juce::KeyPress::leftKey || key == juce::KeyPress::rightKey
+        || key == juce::KeyPress::upKey || key == juce::KeyPress::downKey)
+    {
+        if (selectedPoint_ <= 0 || selectedPoint_ >= (int) curve_.size() - 1)
+            return true;
+        const auto& point = curve_[(std::size_t) selectedPoint_];
+        double x = point.x, y = point.y;
+        if (key == juce::KeyPress::leftKey) x -= stepX;
+        if (key == juce::KeyPress::rightKey) x += stepX;
+        if (key == juce::KeyPress::upKey) y += stepY;
+        if (key == juce::KeyPress::downKey) y -= stepY;
+        moveSelectedPointTo (x, y);
+        return true;
+    }
+    return false;
+}
+
+juce::Path GraphComponent::makeSmoothCurvePath (juce::Rectangle<float> plot) const
+{
+    juce::Path path;
+    if (curve_.size() < 2)
+        return path;
+
+    auto catmullRom = [] (double p0, double p1, double p2, double p3, double t)
+    {
+        const double t2 = t * t, t3 = t2 * t;
+        return 0.5 * ((2.0 * p1) + (-p0 + p2) * t
+                      + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2
+                      + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3);
+    };
+
+    const auto toScreen = [&] (double x, double y)
+    {
+        return juce::Point<float> (plot.getX() + (float) x * plot.getWidth(),
+                                   plot.getY() + (float) (1.0 - y) * plot.getHeight());
+    };
+    path.startNewSubPath (toScreen (curve_[0].x, curve_[0].y));
+    for (std::size_t i = 0; i + 1 < curve_.size(); ++i)
+    {
+        const auto& p0 = curve_[i == 0 ? i : i - 1];
+        const auto& p1 = curve_[i];
+        const auto& p2 = curve_[i + 1];
+        const auto& p3 = curve_[i + 2 < curve_.size() ? i + 2 : i + 1];
+        const int steps = juce::jmax (8, (int) std::ceil ((p2.x - p1.x) * plot.getWidth() / 2.0f));
+        for (int step = 1; step <= steps; ++step)
+        {
+            const double t = (double) step / steps;
+            const double x = juce::jmap (t, p1.x, p2.x);
+            const double y = juce::jlimit (0.0, 1.0, catmullRom (p0.y, p1.y, p2.y, p3.y, t));
+            path.lineTo (toScreen (x, y));
+        }
+    }
+    return path;
 }
 
 void GraphComponent::resetHistory()
@@ -137,8 +415,72 @@ bool GraphComponent::historyIsSilent() const
 }
 
 //==============================================================================
+void GraphComponent::paintPumpCurve (juce::Graphics& g)
+{
+    const auto curvePlot = curvePlotBounds();
+    g.setColour (juce::Colour (0xff090c10));
+    g.fillRect (curvePlot);
+
+    g.setColour (juce::Colour (0xff202832));
+    for (int i = 1; i < 4; ++i)
+    {
+        const float gx = curvePlot.getX() + curvePlot.getWidth() * (float) i / 4.0f;
+        const float gy = curvePlot.getY() + curvePlot.getHeight() * (float) i / 4.0f;
+        g.drawVerticalLine ((int) gx, curvePlot.getY(), curvePlot.getBottom());
+        g.drawHorizontalLine ((int) gy, curvePlot.getX(), curvePlot.getRight());
+    }
+    g.setColour (juce::Colour (0xff34414c));
+    g.drawRect (curvePlot, 1.0f);
+
+    const auto curvePath = makeSmoothCurvePath (curvePlot);
+    juce::Path fill;
+    fill.addPath (curvePath);
+    fill.lineTo (curvePlot.getRight(), curvePlot.getY());
+    fill.lineTo (curvePlot.getX(), curvePlot.getY());
+    fill.closeSubPath();
+    g.setColour (juce::Colour (0x337fd1c0));
+    g.fillPath (fill);
+    g.setColour (juce::Colour (0xff7fd1c0));
+    g.strokePath (curvePath, juce::PathStrokeType (2.5f,
+        juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    g.setFont (juce::Font (10.0f));
+    g.setColour (juce::Colour (0xff8b98a6));
+    g.drawText ("UNITY", curvePlot.getX() + 4, curvePlot.getY() + 3, 48, 12,
+                juce::Justification::topLeft);
+    g.drawText ("DUCK", curvePlot.getX() + 4, curvePlot.getBottom() - 15, 48, 12,
+                juce::Justification::bottomLeft);
+    g.drawText ("PUMPCURVE", curvePlot.getRight() - 82, curvePlot.getY() + 3, 78, 12,
+                juce::Justification::topRight);
+
+    for (std::size_t i = 0; i < curve_.size(); ++i)
+    {
+        const auto point = pointToPosition (curve_[i]);
+        const bool selected = (int) i == selectedPoint_;
+        const float radius = selected ? 6.5f : 5.0f;
+        if (selected)
+        {
+            g.setColour (juce::Colour (0x557fd1c0));
+            g.fillEllipse (point.x - 10.0f, point.y - 10.0f, 20.0f, 20.0f);
+        }
+        g.setColour (i == 0 || i + 1 == curve_.size()
+                         ? juce::Colour (0xffc3d2d6) : juce::Colour (0xff7fd1c0));
+        g.fillEllipse (point.x - radius, point.y - radius, radius * 2.0f, radius * 2.0f);
+        g.setColour (juce::Colour (0xff090c10));
+        g.drawEllipse (point.x - radius, point.y - radius, radius * 2.0f,
+                       radius * 2.0f, selected ? 1.5f : 1.0f);
+    }
+}
+
 void GraphComponent::paint (juce::Graphics& g)
 {
+    if (! historyDisplayEnabled_)
+    {
+        g.fillAll (juce::Colour (0xff000000));
+        paintPumpCurve (g);
+        return;
+    }
+
     auto area = getLocalBounds().toFloat();
 
     // Panel background (same pure black field as the rest of the plugin;
@@ -282,7 +624,7 @@ void GraphComponent::paint (juce::Graphics& g)
                     juce::Justification::bottomLeft);
     }
 
-    if (viewMode_ == ViewMode::sidechain)
+    if (historyDisplayEnabled_ && viewMode_ == ViewMode::sidechain)
     {
         // ================================================================
         // SIDECHAIN view: ONLY the ducking envelope (+ trigger ticks).
@@ -351,7 +693,7 @@ void GraphComponent::paint (juce::Graphics& g)
             }
         }
     }
-    else
+    else if (historyDisplayEnabled_)
     {
         // ================================================================
         // ANALYZER view: the original multi-trace signal analysis.
@@ -423,4 +765,9 @@ void GraphComponent::paint (juce::Graphics& g)
     g.setColour (juce::Colour (0xff6b7687));
     g.drawText ("0 dB",  plot.getX() + 4, (int) y0 - 13, 60, 14, juce::Justification::topLeft);
     g.drawText ("-60",   plot.getX() + 4, (int) (y0 + h) - 14, 60, 14, juce::Justification::topLeft);
+
+    // Phase C foreground: the normalized editable PumpCurve is the primary
+    // graph. Keep the historical analyzer/history engine alive underneath;
+    // this opaque plotting surface is display-only and never feeds the DSP.
+    paintPumpCurve (g);
 }

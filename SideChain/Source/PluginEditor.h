@@ -85,6 +85,7 @@ private:
     void showInfoView();
     void drawMusicProdLogo (juce::Graphics& g, juce::Rectangle<int> area) const;
     void paintOverChildren (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
 
     juce::Rectangle<int> logoArea;
     juce::Rectangle<int> infoButtonBounds;   // keeps paint() text clear of the button
@@ -144,6 +145,10 @@ private:
     ProdKnob   duckLengthKnob;
     juce::Label duckLengthValueLabel;
     juce::Label duckLengthCaption;
+    juce::Label smoothValueLabel;
+    juce::Label smoothCaption;
+    juce::Slider smoothSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> smoothAttachment;
 
     // SHAPE: Release as envelope character (plateau vs tail; smaller knob).
     ProdKnob   releaseKnob;

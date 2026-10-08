@@ -3,7 +3,7 @@
 <JUCERPROJECT id="ScPrd" name="SideChain" projectType="audioplug" version="0.4.1"
               bundleIdentifier="com.musicprod.sidechain" includeBinaryInAppConfig="1"
               buildVST="0" buildVST3="1" buildAU="1" buildAUv3="0" buildStandalone="0"
-              buildRTAS="0" buildAAX="0" pluginName="SideChainer"
+              buildRTAS="0" buildAAX="0" pluginName="PumpCurve"
               pluginDesc="Tempo-synchronised rhythmic ducking effect"
               pluginManufacturer="Music-Prod" pluginManufacturerCode="Musc"
               pluginCode="SdCh" pluginChannelConfigs="" pluginIsSynth="0"

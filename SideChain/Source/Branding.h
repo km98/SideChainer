@@ -1,14 +1,14 @@
 /*
-    SideChain - Music-Prod product branding: the SideChainer logo.
+    PumpCurve - Music-Prod product branding wordmark.
 
     An original vector lockup (no copied assets). Construction:
 
-      - "Side" in primary white, heavy weight
+      - "Pump" in primary white, heavy weight
       - an interlocking chain-link mark as the connector between the two
         halves: two small rounded-rectangle links drawn in mint, the second
         one offset through the first - the visual pun on "chain" and on the
         link between the sidechain trigger and the ducked main signal
-      - "Chainer" in mint, heavy weight
+      - "Curve" in mint, heavy weight
       - a baseline hairline under the whole lockup with a solid mint
         end-cap (restrained accent line, Music-Prod.com design language)
 
@@ -28,7 +28,7 @@ namespace sid::branding
     constexpr uint32_t kTextPrimary = 0xffe8ecf3;
     constexpr uint32_t kAccent      = 0xff7fd1c0;   // Music-Prod mint
 
-    // Draw the SideChainer logo left-aligned, vertically centred in `area`,
+    // Draw the PumpCurve wordmark left-aligned, vertically centred in `area`,
     // scaled by `fontHeight` (the cap height of the letterforms).
     inline void drawWordmark (juce::Graphics& g,
                               juce::Rectangle<float> area,
@@ -36,8 +36,8 @@ namespace sid::branding
                               juce::Colour primaryColour = juce::Colour (kTextPrimary),
                               juce::Colour accentColour  = juce::Colour (kAccent))
     {
-        const juce::String first  = "Side";
-        const juce::String second = "Chainer";
+        const juce::String first  = "Pump";
+        const juce::String second = "Curve";
 
         juce::Font heavy (juce::Font (juce::Font::getDefaultSansSerifFontName(),
                                       fontHeight, juce::Font::bold));

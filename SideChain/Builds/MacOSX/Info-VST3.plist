@@ -10,9 +10,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.musicprod.sidechain</string>
     <key>CFBundleName</key>
-    <string>SideChainer</string>
+    <string>PumpCurve</string>
     <key>CFBundleDisplayName</key>
-    <string>SideChainer</string>
+    <string>PumpCurve</string>
     <key>CFBundlePackageType</key>
     <string>BNDL</string>
     <key>CFBundleSignature</key>

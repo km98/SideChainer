@@ -767,7 +767,7 @@ void SideChainAudioProcessorEditor::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (kBackground));
 
-    // Header: SideChainer wordmark (left) - INFO button occupies the right.
+    // Header: PumpCurve wordmark (left) - INFO button occupies the right.
     if (showingInfo)
         return; // the INFO page paints its own branding over the base
 

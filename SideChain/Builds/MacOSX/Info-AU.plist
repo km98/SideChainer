@@ -10,9 +10,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.musicprod.sidechain</string>
     <key>CFBundleName</key>
-    <string>SideChainer</string>
+    <string>PumpCurve</string>
     <key>CFBundleDisplayName</key>
-    <string>SideChainer</string>
+    <string>PumpCurve</string>
     <key>CFBundlePackageType</key>
     <string>BNDL</string>
     <key>CFBundleSignature</key>
@@ -29,7 +29,7 @@
     <array>
       <dict>
         <key>name</key>
-        <string>Music-Prod: SideChainer</string>
+        <string>Music-Prod: PumpCurve</string>
         <key>description</key>
         <string>Tempo-synchronised rhythmic ducking effect</string>
         <key>factoryFunction</key>

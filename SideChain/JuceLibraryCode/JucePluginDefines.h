@@ -38,7 +38,7 @@
  #define JucePlugin_Enable_IAA             0
 #endif
 #ifndef  JucePlugin_Name
- #define JucePlugin_Name                   "SideChainer"
+ #define JucePlugin_Name                   "PumpCurve"
 #endif
 #ifndef  JucePlugin_Desc
  #define JucePlugin_Desc                   "Tempo-synchronised rhythmic ducking effect"
@@ -149,7 +149,7 @@
  #define JucePlugin_IAASubType             JucePlugin_PluginCode
 #endif
 #ifndef  JucePlugin_IAAName
- #define JucePlugin_IAAName                "Music-Prod: SideChainer"
+ #define JucePlugin_IAAName                "Music-Prod: PumpCurve"
 #endif
 #ifndef  JucePlugin_VSTNumMidiInputs
  #define JucePlugin_VSTNumMidiInputs       16

@@ -69,7 +69,7 @@ InfoPageComponent::InfoPageComponent (sid::auth::AuthManager& authRef,
                                       const juce::String& version)
     : auth (authRef), pluginVersion (version)
 {
-    // Product branding is the shared "SideChainer" wordmark (drawn in
+    // Product branding is the shared "PumpCurve" wordmark (drawn in
     // paint(); the label only reserves layout space).
     productTitle.setText ("", juce::dontSendNotification);
     productTitle.setInterceptsMouseClicks (false, false);
@@ -217,7 +217,7 @@ void InfoPageComponent::paint (juce::Graphics& g)
 {
     g.fillAll (juce::Colour (kBackground));
 
-    // Product branding: shared SideChainer wordmark (same treatment as the
+    // Product branding: shared PumpCurve wordmark (same treatment as the
     // main header), drawn in the space reserved by productTitle.
     if (productTitle.getWidth() > 0)
         sid::branding::drawWordmark (g, productTitle.getBounds().toFloat(), 34.0f);

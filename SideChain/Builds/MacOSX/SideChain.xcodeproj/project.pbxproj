@@ -635,7 +635,7 @@
 				INFOPLIST_FILE = Info-AU.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -691,7 +691,7 @@
 				INFOPLIST_FILE = Info-VST3.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -744,7 +744,7 @@
 					"$(inherited)",
 				);
 				INSTALL_PATH = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -796,7 +796,7 @@
 					"$(inherited)",
 				);
 				INSTALL_PATH = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -850,7 +850,7 @@
 				INFOPLIST_FILE = Info-VST3.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -866,7 +866,7 @@
 		40671729857FC9F034A4E5AE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -961,7 +961,7 @@
 				INFOPLIST_FILE = Info-AU.plist;
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
@@ -1026,7 +1026,7 @@
 		E407753E0DE58BD56ED9EB16 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				MACOSX_DEPLOYMENT_TARGET = 11.00;
+				MACOSX_DEPLOYMENT_TARGET = 12.00;
 				SDKROOT = macosx;
 			};
 			name = Release;

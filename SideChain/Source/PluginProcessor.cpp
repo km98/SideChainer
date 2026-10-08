@@ -17,6 +17,8 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include <cstring>
+
 namespace
 {
     // State schema versions:
@@ -46,6 +48,7 @@ SideChainAudioProcessor::SideChainAudioProcessor()
 
     parameters.addParameterListener ("release", this);
     parameters.addParameterListener ("duckLength", this);
+    publishPumpCurveSnapshot();
     applyReleaseToEngine();
     applyDuckLengthToEngine();
 }
@@ -124,6 +127,66 @@ void SideChainAudioProcessor::applyReleaseToEngine()
 void SideChainAudioProcessor::applyDuckLengthToEngine()
 {
     duckEngine.setDuckLengthMs (duckLengthRawParameter->load());
+}
+
+void SideChainAudioProcessor::publishPumpCurveSnapshot() noexcept
+{
+    static_assert (sizeof (float) == sizeof (std::uint32_t), "snapshot stores IEEE float words");
+    const std::lock_guard<std::mutex> writerLock (curveSnapshotWriterMutex_);
+    const std::lock_guard<std::mutex> modelLock (curveModelMutex_);
+
+    curveSnapshotVersion_.fetch_add (1, std::memory_order_acq_rel); // odd: publish in progress
+    curveSnapshotCount_.store ((int) pumpCurve_.size(), std::memory_order_relaxed);
+    curveSnapshotPumpMode_.store (curveStateMode_ == sid::curve::StateMode::pumpCurve,
+                                  std::memory_order_relaxed);
+    for (std::size_t i = 0; i < sid::curve::PumpCurve::kMaximumPoints; ++i)
+    {
+        const auto point = i < pumpCurve_.size() ? pumpCurve_[i] : sid::curve::Point {};
+        const float x = (float) point.x, y = (float) point.y;
+        std::uint32_t xBits = 0, yBits = 0;
+        std::memcpy (&xBits, &x, sizeof (xBits));
+        std::memcpy (&yBits, &y, sizeof (yBits));
+        curveSnapshotXY_[i * 2].store (xBits, std::memory_order_relaxed);
+        curveSnapshotXY_[i * 2 + 1].store (yBits, std::memory_order_relaxed);
+    }
+    curveSnapshotVersion_.fetch_add (1, std::memory_order_release); // even: complete
+}
+
+bool SideChainAudioProcessor::loadPumpCurveSnapshotForAudio (sid::curve::PumpCurve& curve) noexcept
+{
+    for (int attempt = 0; attempt < 3; ++attempt)
+    {
+        const auto before = curveSnapshotVersion_.load (std::memory_order_acquire);
+        if ((before & 1u) != 0u)
+            continue;
+
+        const int count = curveSnapshotCount_.load (std::memory_order_relaxed);
+        const bool pumpMode = curveSnapshotPumpMode_.load (std::memory_order_relaxed);
+        sid::curve::Point points[sid::curve::PumpCurve::kMaximumPoints] {};
+        if (count >= (int) sid::curve::PumpCurve::kMinimumPoints
+            && count <= (int) sid::curve::PumpCurve::kMaximumPoints)
+            for (int i = 0; i < count; ++i)
+            {
+                const auto xBits = curveSnapshotXY_[(std::size_t) i * 2].load (std::memory_order_relaxed);
+                const auto yBits = curveSnapshotXY_[(std::size_t) i * 2 + 1].load (std::memory_order_relaxed);
+                float x = 0.0f, y = 0.0f;
+                std::memcpy (&x, &xBits, sizeof (x));
+                std::memcpy (&y, &yBits, sizeof (y));
+                points[i] = { x, y };
+            }
+
+        const auto after = curveSnapshotVersion_.load (std::memory_order_acquire);
+        if (before != after || (after & 1u) != 0u)
+            continue;
+
+        sid::curve::PumpCurve candidate;
+        if (! candidate.trySetPoints (points, (std::size_t) count))
+            return false;
+        curve = candidate;
+        audioPumpMode_ = pumpMode;
+        return true;
+    }
+    return false; // retain the last complete snapshot instead of waiting
 }
 
 void SideChainAudioProcessor::parameterChanged (const juce::String& parameterID, float)
@@ -362,12 +425,15 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     }
 
     // ------------------------------------------------------------------
-    // Depth from Amount (per-block atomic read; smoothed per-sample by the
-    // envelope engine).
+    // Depth from Amount and PumpCurve smoothness, plus the legacy-compatible
+    // TIME duration. Reads are atomic once per block; the model snapshot is
+    // fixed-capacity and never touched inside the sample loop.
     // ------------------------------------------------------------------
     const float amount01 = juce::jlimit (0.0f, 1.0f,
                                          amountRawParameter->load (std::memory_order_relaxed) / 100.0f);
     const float depthDb = sid::dsp::DuckEngine::amountToDepthDb (amount01);
+    const float smoothPercent = parameters.getRawParameterValue ("smooth")->load (std::memory_order_relaxed);
+    const double duckLengthMs = duckLengthRawParameter->load (std::memory_order_relaxed);
 
     // ------------------------------------------------------------------
     // OFFSET: envelope scheduled at (beat + offset) on the delayed
@@ -378,6 +444,8 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // ------------------------------------------------------------------
     duckEngine.setOffsetMs ((int) std::lround (
         offsetRawParameter->load (std::memory_order_relaxed)));
+    loadPumpCurveSnapshotForAudio (audioPumpCurve_);
+    duckEngine.setPumpCurve (audioPumpCurve_, smoothPercent);
 
     // Per-block peak accumulators for the graph (aggregated once per block,
     // never per-sample GUI data).
@@ -401,13 +469,18 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (nextTriggerIdx < numPendingTriggers_
             && pendingTriggerSamples_[nextTriggerIdx] == i)
         {
-            duckEngine.fireTrigger();
+            if (audioPumpMode_)
+                duckEngine.fireCurveTrigger();
+            else
+                duckEngine.fireTrigger();
             ++nextTriggerIdx;
         }
 
         // One shared envelope gain from the trigger-driven engine for
         // BOTH channels. (No sidechain input exists any more.)
-        const float gain = duckEngine.processSample (depthDb);
+        const float gain = audioPumpMode_
+                         ? duckEngine.processCurveSample (depthDb, duckLengthMs)
+                         : duckEngine.processSample (depthDb);
 
         // Main path through the lookahead delay (write-then-read = delay of
         // `look` samples). With offset == 0 the delayed audio is ducked
@@ -525,19 +598,26 @@ void SideChainAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     auto state = parameters.copyState();
     state.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
+    sid::curve::PumpCurve savedCurve;
+    sid::curve::StateMode savedCurveMode;
+    {
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        savedCurve = pumpCurve_;
+        savedCurveMode = curveStateMode_;
+    }
     for (int i = state.getNumChildren(); --i >= 0;)
         if (state.getChild (i).hasType ("PUMPCURVE"))
             state.removeChild (i, nullptr);
 
-    if (curveStateMode_ == sid::curve::StateMode::pumpCurve)
+    if (savedCurveMode == sid::curve::StateMode::pumpCurve)
     {
         juce::ValueTree curveTree ("PUMPCURVE");
-        curveTree.setProperty ("pointCount", (int) pumpCurve_.size(), nullptr);
-        for (std::size_t i = 0; i < pumpCurve_.size(); ++i)
+        curveTree.setProperty ("pointCount", (int) savedCurve.size(), nullptr);
+        for (std::size_t i = 0; i < savedCurve.size(); ++i)
         {
             juce::ValueTree pointTree ("POINT");
-            pointTree.setProperty ("x", pumpCurve_[i].x, nullptr);
-            pointTree.setProperty ("y", pumpCurve_[i].y, nullptr);
+            pointTree.setProperty ("x", savedCurve[i].x, nullptr);
+            pointTree.setProperty ("y", savedCurve[i].y, nullptr);
             curveTree.addChild (pointTree, -1, nullptr);
         }
         state.addChild (curveTree, -1, nullptr);
@@ -671,19 +751,21 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
     const float smoothRestore = smoothOk
         ? *sanitisedParamValue (tree, "smooth") : 50.0f;
 
-    // Only schema 6+ is allowed to activate PumpCurve data. An absent,
-    // malformed or older-schema curve remains in legacy mode. The in-memory
-    // default model is available for a future explicit conversion, but will
-    // not be written into legacy state or change current audio behavior.
+    // Only a valid schema 6+ PUMPCURVE activates the new shape engine.
+    // Missing or malformed curve data selects the legacy envelope deterministically;
+    // schemas 1-5 remain on their established Release/duckLength behavior.
     int savedVersion = 0;
     const auto versionValue = tree.getProperty ("stateVersion");
     if (versionValue.isInt())
         savedVersion = (int) versionValue;
     sid::curve::PumpCurve loadedCurve;
     const bool curveValid = savedVersion >= 6 && readPumpCurve (tree, loadedCurve);
-    curveStateMode_ = curveValid ? sid::curve::StateMode::pumpCurve
-                                 : sid::curve::StateMode::legacy;
-    pumpCurve_ = curveValid ? loadedCurve : sid::curve::PumpCurve();
+    {
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        curveStateMode_ = curveValid ? sid::curve::StateMode::pumpCurve
+                                     : sid::curve::StateMode::legacy;
+        pumpCurve_ = curveValid ? loadedCurve : sid::curve::PumpCurve();
+    }
 
     // Remove curve data after validation: only the fixed-capacity model is
     // retained, and malformed curve children cannot survive a fallback.
@@ -718,16 +800,21 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
         smoothParam->setValueNotifyingHost (
             smoothParam->convertTo0to1 (smoothRestore));
 
-    applyReleaseToEngine();    // re-sync engine with the (sanitised) Shape
-    applyDuckLengthToEngine(); // re-sync engine with the (sanitised) Duck Length
+    applyReleaseToEngine();    // re-sync legacy envelope with the (sanitised) Shape
+    applyDuckLengthToEngine(); // re-sync engine timing with the (sanitised) Duck Length
+    publishPumpCurveSnapshot();
 }
 
 bool SideChainAudioProcessor::setPumpCurvePoints (const sid::curve::Point* points,
                                                     std::size_t count) noexcept
 {
-    if (! pumpCurve_.trySetPoints (points, count))
-        return false;
-    curveStateMode_ = sid::curve::StateMode::pumpCurve;
+    {
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        if (! pumpCurve_.trySetPoints (points, count))
+            return false;
+        curveStateMode_ = sid::curve::StateMode::pumpCurve;
+    }
+    publishPumpCurveSnapshot();
     return true;
 }
 

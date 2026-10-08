@@ -57,6 +57,7 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <mutex>
 #include "DuckEngine.h"
 #include "BeatScheduler.h"
 #include "GraphData.h"
@@ -107,21 +108,34 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    // PumpCurve state model (Phase B only; deliberately not connected to DSP).
-    const sid::curve::PumpCurve& getPumpCurve() const noexcept { return pumpCurve_; }
-    sid::curve::StateMode getCurveStateMode() const noexcept { return curveStateMode_; }
+    // PumpCurve state model. The model is control/state-thread owned; the DSP
+    // consumes a compact validated atomic snapshot at block boundaries.
+    sid::curve::PumpCurve getPumpCurve() const noexcept
+    {
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        return pumpCurve_;
+    }
+    sid::curve::StateMode getCurveStateMode() const noexcept
+    {
+        const std::lock_guard<std::mutex> lock (curveModelMutex_);
+        return curveStateMode_;
+    }
     bool setPumpCurvePoints (const sid::curve::Point* points, std::size_t count) noexcept;
 
-    // APVTS listener: keeps the engine's envelope timing in sync with the
-    // user-facing parameters (message thread).
+    // APVTS listener: keeps the legacy envelope timing in sync with Release
+    // and TIME parameters (message thread).
     void parameterChanged (const juce::String& parameterID, float newValue) override;
 
-    // Push the user-facing Shape (ms; envelope SHAPE) into the engine.
+    // Push Release timing into the legacy envelope. Schema 6 PumpCurve shape
+    // is authored by the normalized curve and leaves Release semantics unchanged
+    // for schemas 1-5.
     void applyReleaseToEngine();
 
     // Push the user-facing DUCK LENGTH (ms; total envelope duration) into
     // the engine. Called from the parameter listener (message thread).
     void applyDuckLengthToEngine();
+    void publishPumpCurveSnapshot() noexcept;
+    bool loadPumpCurveSnapshotForAudio (sid::curve::PumpCurve& curve) noexcept;
 
     //==========================================================================
     // Presets. A preset is a named (depth, shape, base length) triple of
@@ -180,10 +194,21 @@ private:
 
     juce::AudioProcessorValueTreeState parameters;
 
-    // Fixed-capacity data model. State mode records whether saved/restored
-    // state explicitly contains PumpCurve data; it has no DSP effect in B.
+    // Fixed-capacity editable model, owned by the state/control thread.
     sid::curve::PumpCurve pumpCurve_;
     sid::curve::StateMode curveStateMode_ = sid::curve::StateMode::pumpCurve;
+    mutable std::mutex curveModelMutex_; // control/state threads only, never audio
+    std::mutex curveSnapshotWriterMutex_; // serializes snapshot publishers, never audio
+
+    // Atomic-scalar seqlock snapshot: all scalar accesses are atomic so
+    // readers can retry without locks or data races; audio copies one bounded
+    // coherent version once per block.
+    std::atomic<std::uint32_t> curveSnapshotVersion_ { 0 };
+    std::array<std::atomic<std::uint32_t>, sid::curve::PumpCurve::kMaximumPoints * 2> curveSnapshotXY_ {};
+    std::atomic<int> curveSnapshotCount_ { 0 };
+    std::atomic<bool> curveSnapshotPumpMode_ { true };
+    sid::curve::PumpCurve audioPumpCurve_;
+    bool audioPumpMode_ = true;
 
     // Cached raw parameter values, read on the audio thread via atomic load.
     std::atomic<float>* amountRawParameter  = nullptr;

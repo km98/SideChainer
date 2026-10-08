@@ -434,6 +434,8 @@ int main()
     // ==================================================================
     printf ("\n6. Graph ordering vs Shape\n");
     {
+        // Use schema 5 fallback here: schema 6 PumpCurve is now the
+        // authoritative shape, while legacy Release still controls old states.
         // 60 BPM: one beat, then a full second of open transport to watch
         // the envelope recover; the graph must show the difference between
         // a short plateau (shape 50) and a long plateau (shape 1000).
@@ -442,8 +444,23 @@ int main()
             SideChainAudioProcessor proc;
             if (auto* pa = proc.getParameters().getParameter ("sidechainAmount"))
                 pa->setValueNotifyingHost (pa->convertTo0to1 (100.0f));
-            if (auto* p = proc.getParameters().getParameter ("release"))
-                p->setValueNotifyingHost (p->convertTo0to1 (shapeMs));
+            // Schema 6 owns envelope shape; compare the Phase B legacy
+            // fallback explicitly so the established Release semantics remain tested.
+            juce::ValueTree legacyState ("PARAMS");
+            legacyState.setProperty ("stateVersion", 5, nullptr);
+            for (const auto& item : { std::pair<const char*, double> { "sidechainAmount", 100.0 },
+                                      { "release", shapeMs }, { "duckLength", 250.0 },
+                                      { "sidechainOffset", 0.0 } })
+            {
+                juce::ValueTree parameter ("PARAM");
+                parameter.setProperty ("id", item.first, nullptr);
+                parameter.setProperty ("value", item.second, nullptr);
+                legacyState.addChild (parameter, -1, nullptr);
+            }
+            juce::MemoryBlock legacyBytes;
+            juce::MemoryOutputStream legacyStream (legacyBytes, false);
+            legacyState.writeToStream (legacyStream);
+            proc.setStateInformation (legacyBytes.getData(), (int) legacyBytes.getSize());
             if (auto* dl = proc.getParameters().getParameter ("duckLength"))
                 dl->setValueNotifyingHost (dl->convertTo0to1 (250.0f));
             proc.prepareToPlay (sr, bs);

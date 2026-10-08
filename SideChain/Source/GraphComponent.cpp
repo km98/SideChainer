@@ -84,6 +84,17 @@ juce::Point<double> GraphComponent::positionToNormalised (juce::Point<float> pos
              juce::jlimit (0.0, 1.0, 1.0 - (double) (position.y - plot.getY()) / plot.getHeight()) };
 }
 
+void GraphComponent::setSmoothness (float smoothnessPercent) noexcept
+{
+    const double value = std::isfinite (smoothnessPercent)
+                       ? juce::jlimit (0.0f, 100.0f, smoothnessPercent) / 100.0 : 0.5;
+    if (value != curveSmoothness_)
+    {
+        curveSmoothness_ = value;
+        repaint();
+    }
+}
+
 void GraphComponent::setCurve (const sid::curve::PumpCurve& curve, sid::curve::StateMode mode)
 {
     if (! sid::curve::PumpCurve::isValid (curve.storage().data(), curve.size()))
@@ -294,14 +305,6 @@ juce::Path GraphComponent::makeSmoothCurvePath (juce::Rectangle<float> plot) con
     if (curve_.size() < 2)
         return path;
 
-    auto catmullRom = [] (double p0, double p1, double p2, double p3, double t)
-    {
-        const double t2 = t * t, t3 = t2 * t;
-        return 0.5 * ((2.0 * p1) + (-p0 + p2) * t
-                      + (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2
-                      + (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3);
-    };
-
     const auto toScreen = [&] (double x, double y)
     {
         return juce::Point<float> (plot.getX() + (float) x * plot.getWidth(),
@@ -319,7 +322,7 @@ juce::Path GraphComponent::makeSmoothCurvePath (juce::Rectangle<float> plot) con
         {
             const double t = (double) step / steps;
             const double x = juce::jmap (t, p1.x, p2.x);
-            const double y = juce::jlimit (0.0, 1.0, catmullRom (p0.y, p1.y, p2.y, p3.y, t));
+            const double y = curve_.evaluate (x, curveSmoothness_);
             path.lineTo (toScreen (x, y));
         }
     }

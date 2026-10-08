@@ -43,6 +43,7 @@ public:
     using CurveChanged = std::function<bool (const sid::curve::PumpCurve&)>;
     void setCurve (const sid::curve::PumpCurve& curve,
                    sid::curve::StateMode mode = sid::curve::StateMode::pumpCurve);
+    void setSmoothness (float smoothnessPercent) noexcept;
     const sid::curve::PumpCurve& getCurve() const noexcept { return curve_; }
     void setCurveChangedCallback (CurveChanged callback) { curveChanged_ = std::move (callback); }
     void resetCurve();
@@ -128,6 +129,7 @@ private:
 
     sid::curve::PumpCurve curve_;
     sid::curve::StateMode curveMode_ = sid::curve::StateMode::pumpCurve;
+    double curveSmoothness_ = 0.5;
     CurveChanged curveChanged_;
     juce::TextButton resetButton_ { "RESET" };
     int selectedPoint_ = -1;

@@ -57,7 +57,9 @@
 
 #include <JuceHeader.h>
 #include <vector>
+#include <array>
 #include <cmath>
+#include "PumpCurve.h"
 
 namespace sid::dsp
 {
@@ -119,6 +121,8 @@ public:
     void reset()
     {
         envelopePhase_  = Phase::idle;
+        curveActive_ = false;
+        curveTriggerSample_ = absoluteSample_;
         envInstantGain_ = 1.0f;
         holdCounter_    = 0;
 
@@ -193,6 +197,58 @@ public:
         }
     }
 
+    // Install a fixed-size immutable snapshot on the message/control thread.
+    // The audio thread only copies the small value object at a block boundary;
+    // it never reads the UI/model or allocates for curve evaluation.
+    void setPumpCurve (const sid::curve::PumpCurve& curve, float smoothness) noexcept
+    {
+        if (sid::curve::PumpCurve::isValid (curve.storage().data(), curve.size()))
+            curve_ = curve;
+        smoothness_ = std::isfinite (smoothness)
+                    ? juce::jlimit (0.0f, 100.0f, smoothness) / 100.0f : 0.5f;
+    }
+
+    float processCurveSample (float depthDb, double duckLengthMs) noexcept
+    {
+        const float depth = std::isfinite (depthDb) ? juce::jlimit (kMaxDuckingDb, 0.0f, depthDb) : 0.0f;
+        const double length = std::isfinite (duckLengthMs)
+                            ? juce::jlimit ((double) kDuckLengthMinMs,
+                                            (double) kDuckLengthMaxMs, duckLengthMs)
+                            : (double) kDuckLengthDefaultMs;
+        ++absoluteSample_;
+
+        const double referenceGain = sid::curve::PumpCurve::kReferenceMinimumGain;
+        const double targetGain = juce::Decibels::decibelsToGain (depth);
+        if (curveActive_)
+        {
+            const double elapsedSamples = juce::jmax (0LL, absoluteSample_ - curveTriggerSample_ - 1);
+            const double elapsedMs = elapsedSamples * 1000.0 / sampleRate_;
+            const double phase = elapsedMs / length;
+            const double authoredGain = curve_.evaluate (phase, smoothness_);
+            const double normalizedDuck = juce::jlimit (0.0, 1.0,
+                (1.0 - authoredGain) / (1.0 - referenceGain));
+            const float nextCurveGain = (float) juce::jlimit (0.0, 1.0,
+                1.0 + (targetGain - 1.0) * normalizedDuck);
+            constexpr float kCurveSampleSmoothing = 0.08f;
+            envInstantGain_ += kCurveSampleSmoothing * (nextCurveGain - envInstantGain_);
+            if (phase >= 1.0)
+            {
+                envInstantGain_ = 1.0f;
+                curveActive_ = false;
+                envelopePhase_ = Phase::idle;
+            }
+        }
+        else if (envelopePhase_ != Phase::idle)
+            advanceEnvelope (depth);
+        else
+            envInstantGain_ = 1.0f;
+
+        envDelay_[(size_t) envDelayPos_] = envInstantGain_;
+        envDelayedGain_ = envDelay_[(size_t) ((envDelayPos_ + 1) % envDelay_.size())];
+        envDelayPos_ = (envDelayPos_ + 1) % (int) envDelay_.size();
+        return std::isfinite (envDelayedGain_) ? juce::jlimit (0.0f, 1.0f, envDelayedGain_) : 1.0f;
+    }
+
     //======================================================================
     // INTERNAL TRIGGER: start ONE duck envelope NOW (this sample). Called
     // by the processor's beat scheduler at the exact sample of each
@@ -200,7 +256,18 @@ public:
     // restarts the attack (musical: every beat pumps).
     void fireTrigger() noexcept
     {
-        envelopePhase_     = Phase::attack;
+        envelopePhase_ = Phase::attack;
+        curveActive_ = false;
+        lastTriggerSample_ = absoluteSample_;
+        ++triggerCount_;
+    }
+
+    void fireCurveTrigger() noexcept
+    {
+        curveTriggerSample_ = absoluteSample_;
+        curveActive_ = true;
+        envelopePhase_ = Phase::idle;
+        envInstantGain_ = 1.0f;
         lastTriggerSample_ = absoluteSample_;
         ++triggerCount_;
     }
@@ -213,11 +280,11 @@ public:
     // Process one sample of the ENVELOPE timeline (no audio input - the
     // trigger comes from the host timeline via fireTrigger()). Returns the
     // gain for BOTH main channels at THIS output sample.
-    inline float processSample (float depthDb)
+    inline    float processSample (float depthDb)
     {
         ++absoluteSample_;
 
-        advanceEnvelope (depthDb);
+        advanceEnvelope (std::isfinite (depthDb) ? juce::jlimit (kMaxDuckingDb, 0.0f, depthDb) : 0.0f);
 
         // Envelope delay line: delay the envelope by (lookahead + offset)
         // samples - the same delay the processor applies to the main audio.
@@ -227,13 +294,14 @@ public:
         envDelayedGain_ = envDelay_[(size_t) ((envDelayPos_ + 1) % envDelay_.size())];
         envDelayPos_ = (envDelayPos_ + 1) % (int) envDelay_.size();
 
-        return envDelayedGain_;
+        return std::isfinite (envDelayedGain_) ? juce::jlimit (0.0f, 1.0f, envDelayedGain_) : 1.0f;
     }
 
     float getCurrentGain() const noexcept        { return envDelayedGain_; }
     float getCurrentReductionDb() const noexcept
     {
-        return juce::Decibels::gainToDecibels (envDelayedGain_, -120.0f);
+        const float gain = std::isfinite (envDelayedGain_) ? juce::jlimit (1.0e-6f, 1.0f, envDelayedGain_) : 1.0f;
+        return juce::Decibels::gainToDecibels (gain, -120.0f);
     }
     float getDerivedHoldMs() const noexcept
     {
@@ -346,6 +414,11 @@ private:
     int    envDelayPos_    = 0;
     float  envDelayedGain_ = 1.0f;
     int    maxDelayCapacity_ = 0;
+
+    sid::curve::PumpCurve curve_;
+    float smoothness_ = 0.5f;
+    long long curveTriggerSample_ = 0;
+    bool curveActive_ = false;
 
     // coefficients
     float envAttackCoeff_  = 0.0f;

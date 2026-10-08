@@ -346,6 +346,11 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     {
         return processorRef.setPumpCurvePoints (curve.storage().data(), curve.size());
     });
+    graph.setSmoothness ((float) smoothSlider.getValue());
+    smoothSlider.onValueChange = [this]
+    {
+        graph.setSmoothness ((float) smoothSlider.getValue());
+    };
     addAndMakeVisible (graph);
     addAndMakeVisible (smoothSlider);
     addAndMakeVisible (smoothValueLabel);
@@ -656,6 +661,7 @@ void SideChainAudioProcessorEditor::timerCallback()
                                   juce::dontSendNotification);
     smoothValueLabel.setText (juce::String ((int) std::round (smoothSlider.getValue())) + "%",
                               juce::dontSendNotification);
+    graph.setSmoothness ((float) smoothSlider.getValue());
     graph.setCurve (processorRef.getPumpCurve(), processorRef.getCurveStateMode());
 
     // Keep the preset identity and offset readout in sync with the LIVE

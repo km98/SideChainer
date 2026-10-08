@@ -116,6 +116,9 @@ namespace
                 ph->positionValid = true;
                 ph->info.isPlaying = active;
                 ph->info.isRecording = false;
+                ph->info.bpm = 120.0;
+                ph->info.timeInSamples = start;
+                ph->info.ppqPosition = (double) start / 24000.0;
             }
 
             for (int ch = 0; ch < 2; ++ch)
@@ -314,7 +317,11 @@ int main()
             auto* amount = dynamic_cast<juce::AudioParameterFloat*> (
                 proc->getParameters().getParameter ("sidechainAmount"));
             amount->setValueNotifyingHost (amount->convertTo0to1 (75.0f));
-            proc->setPlayHead (new TestPlayHead());
+            auto* playHead = new TestPlayHead();
+            playHead->info.bpm = 120.0;
+            playHead->info.timeInSamples = 0;
+            playHead->info.ppqPosition = 0.0;
+            proc->setPlayHead (playHead);
             return proc;
         };
 

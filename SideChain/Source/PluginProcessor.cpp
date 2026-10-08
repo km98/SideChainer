@@ -24,9 +24,9 @@ namespace
     //   2 = Phase 8   : + sidechainWhileStopped (schema change -> bump)
     //   3 = 0.3.0     : + sidechainOffset PARAM
     //   4 = 0.3.0     : + duckLength PARAM
-    //   5 = 0.4.0     : sidechainWhileStopped REMOVED (schema change ->
-    //                   bump); presets now own a base duckLength.
-    constexpr int kCurrentStateVersion = 5;
+    //   5 = 0.4.0     : sidechainWhileStopped removed; presets own base length.
+    //   6 = Phase B   : optional PUMPCURVE subtree and Smooth parameter.
+    constexpr int kCurrentStateVersion = 6;
 }
 
 //==============================================================================
@@ -41,7 +41,8 @@ SideChainAudioProcessor::SideChainAudioProcessor()
     duckLengthRawParameter = parameters.getRawParameterValue ("duckLength");
     offsetRawParameter = parameters.getRawParameterValue ("sidechainOffset");
     jassert (amountRawParameter != nullptr && releaseRawParameter != nullptr
-             && duckLengthRawParameter != nullptr && offsetRawParameter != nullptr);
+             && duckLengthRawParameter != nullptr && offsetRawParameter != nullptr
+             && parameters.getRawParameterValue ("smooth") != nullptr);
 
     parameters.addParameterListener ("release", this);
     parameters.addParameterListener ("duckLength", this);
@@ -98,6 +99,14 @@ SideChainAudioProcessor::createParameterLayout()
             (float) sid::dsp::DuckEngine::kOffsetMinMs,
             (float) sid::dsp::DuckEngine::kOffsetMaxMs, 1.0f),
         0.0f));
+
+    // Phase B model control: normalized smoothness amount, persisted with
+    // the existing parameters but intentionally not consumed by the DSP/UI.
+    layout.add (std::make_unique<juce::AudioParameterFloat> (
+        "smooth",
+        "Smooth",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
+        50.0f));
 
     return layout;
 }
@@ -469,73 +478,81 @@ juce::AudioProcessorEditor* SideChainAudioProcessor::createEditor()
 //==============================================================================
 void SideChainAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // Versioned state persistence (stateVersion 5 in 0.4.0).
+    // Versioned state persistence (schema 6 adds optional PumpCurve data).
     //
     // JUCE 6.1.3 syncs parameter -> ValueTree lazily (internal ~50 Hz timer;
     // flushParameterValuesToValueTree() is private). Without a wait, a host
     // saving state immediately after automation would serialize a STALE
     // value. Deterministic workaround: briefly pump the message loop so the
     // timer fires (hosts call getStateInformation on the message thread).
-    if (! juce::MessageManager::existsAndIsCurrentThread())
+    if (juce::MessageManager::existsAndIsCurrentThread())
     {
-        // Extremely defensive fallback (should not happen in practice):
-        // serialize whatever the tree currently holds.
-        juce::MemoryOutputStream stream (destData, false);
-        parameters.state.writeToStream (stream);
-        return;
-    }
+        const juce::String paramIds[5] =
+            { "sidechainAmount", "duckLength", "release", "sidechainOffset", "smooth" };
 
-    const juce::String paramIds[4] =
-        { "sidechainAmount", "duckLength", "release", "sidechainOffset" };
-
-    for (int i = 0; i < 20; ++i) // up to ~0.4 s, far more than one 50 Hz tick
-    {
-        bool allSynced = true;
-
-        for (const auto& id : paramIds)
+        for (int i = 0; i < 20; ++i) // up to ~0.4 s, far more than one 50 Hz tick
         {
-            auto paramChild = parameters.state.getChildWithName ("PARAM");
-            for (int c = 0; c < parameters.state.getNumChildren(); ++c)
+            bool allSynced = true;
+
+            for (const auto& id : paramIds)
             {
-                auto child = parameters.state.getChild (c);
-                if (child.getProperty ("id").toString() == id)
+                auto paramChild = parameters.state.getChildWithName ("PARAM");
+                for (int c = 0; c < parameters.state.getNumChildren(); ++c)
                 {
-                    paramChild = child;
-                    break;
+                    auto child = parameters.state.getChild (c);
+                    if (child.getProperty ("id").toString() == id)
+                    {
+                        paramChild = child;
+                        break;
+                    }
                 }
+
+                const auto atomicValue = parameters.getRawParameterValue (id)->load();
+                const auto treeValue = paramChild.getProperty ("value");
+
+                if (treeValue.isVoid()
+                    || std::abs ((float) (double) treeValue - atomicValue) > 1.0e-4f)
+                    allSynced = false;
             }
 
-            const auto atomicValue = parameters.getRawParameterValue (id)->load();
-            const auto treeValue = paramChild.getProperty ("value");
+            if (allSynced && i > 0)
+                break;
 
-            if (treeValue.isVoid()
-                || std::abs ((float) (double) treeValue - atomicValue) > 1.0e-4f)
-                allSynced = false;
+            juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
+            juce::Timer::callPendingTimersSynchronously();
         }
-
-        if (allSynced && i > 0)
-            break;
-
-        juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
-        juce::Timer::callPendingTimersSynchronously();
     }
 
-    // Stamp the state version (0.4.0 = 5) before serializing so every
-    // state this build produces is identifiable.
-    parameters.state.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
+    auto state = parameters.copyState();
+    state.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
+    for (int i = state.getNumChildren(); --i >= 0;)
+        if (state.getChild (i).hasType ("PUMPCURVE"))
+            state.removeChild (i, nullptr);
+
+    if (curveStateMode_ == sid::curve::StateMode::pumpCurve)
+    {
+        juce::ValueTree curveTree ("PUMPCURVE");
+        curveTree.setProperty ("pointCount", (int) pumpCurve_.size(), nullptr);
+        for (std::size_t i = 0; i < pumpCurve_.size(); ++i)
+        {
+            juce::ValueTree pointTree ("POINT");
+            pointTree.setProperty ("x", pumpCurve_[i].x, nullptr);
+            pointTree.setProperty ("y", pumpCurve_[i].y, nullptr);
+            curveTree.addChild (pointTree, -1, nullptr);
+        }
+        state.addChild (curveTree, -1, nullptr);
+    }
 
     juce::MemoryOutputStream stream (destData, false);
-    parameters.state.writeToStream (stream);
+    state.writeToStream (stream);
 }
 
 //==============================================================================
-// State recovery policy (Phase 7A hardening, 0.4.0 update).
+// State recovery policy (Phase 7A hardening, extended for schema 6).
 //
 // Goal: malformed/corrupt/unexpected state must never crash the plugin,
-// never put a NaN/Inf into the DSP, and never leave a parameter outside
-// its documented range. Unknown PARAM children (e.g. the removed
-// sidechainWhileStopped from v1-4 states) are ignored by APVTS - old
-// sessions load safely. Missing values default.
+// never put a NaN/Inf into a parameter, and never leave a parameter outside
+// its documented range. Unknown PARAM children remain ignored by APVTS.
 namespace
 {
     std::optional<float> sanitisedParamValue (const juce::ValueTree& state,
@@ -557,6 +574,45 @@ namespace
             return f;
         }
         return std::nullopt;
+    }
+
+    bool readPumpCurve (const juce::ValueTree& state, sid::curve::PumpCurve& curve)
+    {
+        juce::ValueTree found;
+        int matches = 0;
+        for (int i = 0; i < state.getNumChildren(); ++i)
+            if (state.getChild (i).hasType ("PUMPCURVE"))
+            {
+                found = state.getChild (i);
+                ++matches;
+            }
+
+        if (matches != 1 || found.getNumProperties() != 1
+            || ! found.hasProperty ("pointCount"))
+            return false;
+        const auto countValue = found.getProperty ("pointCount");
+        if (! countValue.isInt())
+            return false;
+        const int count = (int) countValue;
+        if (count < (int) sid::curve::PumpCurve::kMinimumPoints
+            || count > (int) sid::curve::PumpCurve::kMaximumPoints
+            || found.getNumChildren() != count)
+            return false;
+
+        sid::curve::Point points[sid::curve::PumpCurve::kMaximumPoints] {};
+        for (int i = 0; i < count; ++i)
+        {
+            const auto point = found.getChild (i);
+            if (! point.hasType ("POINT") || point.getNumProperties() != 2
+                || ! point.hasProperty ("x") || ! point.hasProperty ("y"))
+                return false;
+            const auto x = point.getProperty ("x");
+            const auto y = point.getProperty ("y");
+            if (! x.isDouble() || ! y.isDouble())
+                return false;
+            points[i] = { (double) x, (double) y };
+        }
+        return curve.trySetPoints (points, (std::size_t) count);
     }
 
     bool paramValueInRange (const juce::ValueTree& state,
@@ -598,6 +654,9 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
         && paramValueInRange (tree, "duckLength", *duckLengthParam);
     const bool offsetOk = offsetParam != nullptr
         && paramValueInRange (tree, "sidechainOffset", *offsetParam);
+    auto* smoothParam = parameters.getParameter ("smooth");
+    const bool smoothOk = smoothParam != nullptr
+        && paramValueInRange (tree, "smooth", *smoothParam);
 
     const float amountRestore = amountOk
         ? *sanitisedParamValue (tree, "sidechainAmount") : 50.0f;
@@ -609,9 +668,32 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
         : sid::dsp::DuckEngine::kDuckLengthDefaultMs;
     const float offsetRestore = offsetOk
         ? *sanitisedParamValue (tree, "sidechainOffset") : 0.0f;
+    const float smoothRestore = smoothOk
+        ? *sanitisedParamValue (tree, "smooth") : 50.0f;
 
-    // Version handling: stamp missing version; keep saved version if
-    // present (a future version's parameters we recognise still load).
+    // Only schema 6+ is allowed to activate PumpCurve data. An absent,
+    // malformed or older-schema curve remains in legacy mode. The in-memory
+    // default model is available for a future explicit conversion, but will
+    // not be written into legacy state or change current audio behavior.
+    int savedVersion = 0;
+    const auto versionValue = tree.getProperty ("stateVersion");
+    if (versionValue.isInt())
+        savedVersion = (int) versionValue;
+    sid::curve::PumpCurve loadedCurve;
+    const bool curveValid = savedVersion >= 6 && readPumpCurve (tree, loadedCurve);
+    curveStateMode_ = curveValid ? sid::curve::StateMode::pumpCurve
+                                 : sid::curve::StateMode::legacy;
+    pumpCurve_ = curveValid ? loadedCurve : sid::curve::PumpCurve();
+
+    // Remove curve data after validation: only the fixed-capacity model is
+    // retained, and malformed curve children cannot survive a fallback.
+    for (int i = tree.getNumChildren(); --i >= 0;)
+        if (tree.getChild (i).hasType ("PUMPCURVE"))
+            tree.removeChild (i, nullptr);
+
+    // The APVTS root remains unchanged; its state tree tolerates other
+    // unknown children. Stamp a missing version; future states' recognized
+    // parameters still load.
     if (! tree.hasProperty ("stateVersion"))
         tree.setProperty ("stateVersion", kCurrentStateVersion, nullptr);
 
@@ -632,9 +714,21 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
     if (! offsetOk && offsetParam != nullptr)
         offsetParam->setValueNotifyingHost (
             offsetParam->convertTo0to1 (offsetRestore));
+    if (! smoothOk && smoothParam != nullptr)
+        smoothParam->setValueNotifyingHost (
+            smoothParam->convertTo0to1 (smoothRestore));
 
     applyReleaseToEngine();    // re-sync engine with the (sanitised) Shape
     applyDuckLengthToEngine(); // re-sync engine with the (sanitised) Duck Length
+}
+
+bool SideChainAudioProcessor::setPumpCurvePoints (const sid::curve::Point* points,
+                                                    std::size_t count) noexcept
+{
+    if (! pumpCurve_.trySetPoints (points, count))
+        return false;
+    curveStateMode_ = sid::curve::StateMode::pumpCurve;
+    return true;
 }
 
 //==============================================================================

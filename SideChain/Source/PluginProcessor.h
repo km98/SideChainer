@@ -48,10 +48,9 @@
     PLAYING or RECORDING; stopped hosts produce no triggers (the graph
     shows the preview). No fake timing, no GUI-timer triggers.
 
-    State: versioned ValueTree ("stateVersion"; 5 since 0.4.0: the
-    sidechainWhileStopped PARAM is gone and presets now own a base
-    duckLength). Versions 1-4 load safely (unknown PARAM children are
-    ignored by APVTS; missing values default).
+    State: versioned ValueTree ("stateVersion"; 6 adds optional PumpCurve
+    state without changing the existing PARAMS/APVTS root). Versions 1-5
+    remain in legacy mode; unknown children are tolerated.
 */
 
 #pragma once
@@ -63,6 +62,7 @@
 #include "GraphData.h"
 #include "PresetManager.h"
 #include "TransportGate.h"
+#include "PumpCurve.h"
 
 //==============================================================================
 class SideChainAudioProcessor : public juce::AudioProcessor,
@@ -106,6 +106,11 @@ public:
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
+
+    // PumpCurve state model (Phase B only; deliberately not connected to DSP).
+    const sid::curve::PumpCurve& getPumpCurve() const noexcept { return pumpCurve_; }
+    sid::curve::StateMode getCurveStateMode() const noexcept { return curveStateMode_; }
+    bool setPumpCurvePoints (const sid::curve::Point* points, std::size_t count) noexcept;
 
     // APVTS listener: keeps the engine's envelope timing in sync with the
     // user-facing parameters (message thread).
@@ -174,6 +179,11 @@ private:
     void applyPresetValues (float amountPercent, float releaseMs, float duckLengthMs);
 
     juce::AudioProcessorValueTreeState parameters;
+
+    // Fixed-capacity data model. State mode records whether saved/restored
+    // state explicitly contains PumpCurve data; it has no DSP effect in B.
+    sid::curve::PumpCurve pumpCurve_;
+    sid::curve::StateMode curveStateMode_ = sid::curve::StateMode::pumpCurve;
 
     // Cached raw parameter values, read on the audio thread via atomic load.
     std::atomic<float>* amountRawParameter  = nullptr;

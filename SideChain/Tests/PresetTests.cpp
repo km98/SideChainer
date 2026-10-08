@@ -416,7 +416,7 @@ int main()
                    "preset rename does not break value-based identification");
         }
 
-        // 4d. stateVersion carries the current schema version (5 in 0.4.0).
+        // 4d. State schema version 6 persists the default PumpCurve subtree.
         {
             SideChainAudioProcessor proc;
             proc.applyFactoryPreset ("Micro Kick");
@@ -424,8 +424,9 @@ int main()
             juce::MemoryBlock mb;
             proc.getStateInformation (mb);
             auto tree = juce::ValueTree::readFromData (mb.getData(), mb.getSize());
-            check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 5,
-                   "stateVersion = 5 (0.4.0 internal-trigger schema)");
+            check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 6
+                       && tree.getChildWithName ("PUMPCURVE").isValid(),
+                   "stateVersion = 6 with default PUMPCURVE subtree");
         }
     }
 

@@ -418,15 +418,14 @@ int main()
         check (a3 != nullptr && std::abs (a3->get() - 30.0f) < 0.01f, "old state: Amount=30 restores");
         check (r3 != nullptr && std::abs (r3->get() - 150.0f) < 0.01f, "old state without Release: safe default 150 ms");
 
-        // 5c. State carries the version attribute (2 since Phase 8 added
-        //     the sidechainWhileStopped PARAM; the 7A hardening itself was
-        //     schema-neutral, but the saved version moved with the schema).
+        // 5c. Current state schema carries version 6 and its default curve.
         SideChainAudioProcessor proc4;
         juce::MemoryBlock mb4;
         proc4.getStateInformation (mb4);
         auto tree = juce::ValueTree::readFromData (mb4.getData(), mb4.getSize());
-        check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 5,
-               "saved state carries stateVersion = 5 (0.4.0 internal-trigger schema)");
+        check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 6
+                   && tree.getChildWithName ("PUMPCURVE").isValid(),
+               "saved state carries schema 6 and default PUMPCURVE subtree");
     }
 
     // ==================================================================
@@ -759,6 +758,223 @@ int main()
                     if (! std::isfinite (block.getSample (0, i))) finite = false;
             }
             check (finite, "7A: DSP output finite after NaN/negative state load");
+        }
+    }
+
+    // ==================================================================
+    // 9. PumpCurve bounded model + schema 6 state persistence.
+    // ==================================================================
+    printf ("\n9. PumpCurve model + schema 6 state\n");
+    {
+        using sid::curve::Point;
+        using sid::curve::PumpCurve;
+        using sid::curve::StateMode;
+
+        const auto defaults = PumpCurve::defaultPoints();
+        PumpCurve defaultCurve;
+        bool defaultsValid = defaultCurve.size() == defaults.size();
+        for (std::size_t i = 0; i < defaults.size(); ++i)
+            defaultsValid = defaultsValid && defaultCurve[i].x == defaults[i].x
+                          && defaultCurve[i].y == defaults[i].y;
+        check (defaultsValid && PumpCurve::isValid (defaults.data(), defaults.size()),
+               "PumpCurve default is valid and deterministic");
+        check (std::abs (defaultCurve[1].x - 0.018) < 1.0e-12
+                   && defaultCurve[1].y > 0.06 && defaultCurve[1].y < 0.07,
+               "PumpCurve default reflects 1.5 ms attack and -24 dB duck depth at defaults");
+
+        PumpCurve two;
+        const Point twoPoints[] = {{ 0.0, 1.0 }, { 1.0, 1.0 }};
+        check (two.trySetPoints (twoPoints, 2) && two.size() == 2,
+               "PumpCurve accepts exactly 2 points");
+
+        Point sixteen[PumpCurve::kMaximumPoints] {};
+        for (std::size_t i = 0; i < PumpCurve::kMaximumPoints; ++i)
+            sixteen[i] = { (double) i / (PumpCurve::kMaximumPoints - 1), 0.5 };
+        sixteen[0].y = sixteen[PumpCurve::kMaximumPoints - 1].y = 1.0;
+        Point eleven[PumpCurve::kMaximumPoints + 1] {};
+        for (std::size_t i = 0; i < PumpCurve::kMaximumPoints + 1; ++i)
+            eleven[i] = { (double) i / PumpCurve::kMaximumPoints, 0.5 };
+        eleven[0].y = eleven[PumpCurve::kMaximumPoints].y = 1.0;
+        Point seven[7] {};
+        for (std::size_t i = 0; i < 7; ++i)
+            seven[i] = { (double) i / 6.0, 0.5 };
+        seven[0].y = seven[6].y = 1.0;
+        PumpCurve sixteenCurve;
+        check (sixteenCurve.trySetPoints (sixteen, PumpCurve::kMaximumPoints),
+               "PumpCurve accepts maximum 16 points");
+        PumpCurve oversized;
+        check (! PumpCurve::isValid (eleven, PumpCurve::kMaximumPoints + 1)
+                   && ! oversized.trySetPoints (eleven, PumpCurve::kMaximumPoints + 1),
+               "PumpCurve rejects more than 16 points");
+        check (! PumpCurve::isValid (twoPoints, 1), "PumpCurve rejects fewer than 2 points");
+        check (defaults.size() == PumpCurve::defaultPoints().size()
+                   && PumpCurve::isValid (defaults.data(), defaults.size())
+                   && PumpCurve::isValid (seven, 7),
+               "default curve generation repeats deterministically; other valid point counts work");
+
+        Point nanPoint[] = {{ 0.0, 1.0 }, { 0.5, std::numeric_limits<double>::quiet_NaN() }, { 1.0, 1.0 }};
+        Point infPoint[] = {{ 0.0, 1.0 }, { 0.5, std::numeric_limits<double>::infinity() }, { 1.0, 1.0 }};
+        Point rangePoint[] = {{ 0.0, 1.0 }, { 0.5, 1.01 }, { 1.0, 1.0 }};
+        Point rangeXPoint[] = {{ 0.0, 1.0 }, { 1.01, 0.5 }, { 1.0, 1.0 }};
+        Point endpointPoint[] = {{ 0.01, 1.0 }, { 1.0, 1.0 }};
+        Point unordered[] = {{ 0.0, 1.0 }, { 0.7, 0.4 }, { 0.4, 0.5 }, { 1.0, 1.0 }};
+        Point tooClose[] = {{ 0.0, 1.0 }, { 0.0005, 0.5 }, { 1.0, 1.0 }};
+        check (! PumpCurve::isValid (nanPoint, 3), "PumpCurve rejects NaN coordinates");
+        check (! PumpCurve::isValid (infPoint, 3), "PumpCurve rejects infinite coordinates");
+        check (! PumpCurve::isValid (rangePoint, 3) && ! PumpCurve::isValid (rangeXPoint, 3),
+               "PumpCurve rejects out-of-range x/y values deterministically");
+        const bool rejectedWithoutMutation = ! two.trySetPoints (rangePoint, 3) && two.size() == 2;
+        check (rejectedWithoutMutation, "PumpCurve failed update leaves the prior valid points unchanged");
+        check (! PumpCurve::isValid (endpointPoint, 2), "PumpCurve requires fixed unity endpoints");
+        check (! PumpCurve::isValid (unordered, 4), "PumpCurve rejects unordered interior x values");
+        check (! PumpCurve::isValid (tooClose, 3), "PumpCurve enforces minimum x spacing");
+
+        // State fixture helpers.
+        auto loadTree = [] (SideChainAudioProcessor& proc, const juce::ValueTree& tree)
+        {
+            juce::MemoryBlock mb;
+            juce::MemoryOutputStream mos (mb, false);
+            tree.writeToStream (mos);
+            proc.setStateInformation (mb.getData(), (int) mb.getSize());
+        };
+        auto makeVersionedTree = [] (int version)
+        {
+            juce::ValueTree tree ("PARAMS");
+            tree.setProperty ("stateVersion", version, nullptr);
+            const struct { const char* id; double value; int sinceVersion; } values[] = {
+                { "sidechainAmount", 67.3, 1 }, { "release", 333.0, 1 },
+                { "sidechainOffset", -12.0, 3 }, { "duckLength", 612.0, 4 }
+            };
+            for (const auto& value : values)
+            {
+                if (version < value.sinceVersion)
+                    continue;
+                juce::ValueTree p ("PARAM");
+                p.setProperty ("id", value.id, nullptr);
+                p.setProperty ("value", value.value, nullptr);
+                tree.addChild (p, -1, nullptr);
+            }
+            if (version == 2)
+            {
+                juce::ValueTree removed ("PARAM");
+                removed.setProperty ("id", "sidechainWhileStopped", nullptr);
+                removed.setProperty ("value", 1.0, nullptr);
+                tree.addChild (removed, -1, nullptr);
+            }
+            return tree;
+        };
+        auto readFloat = [] (SideChainAudioProcessor& proc, const char* id)
+        {
+            auto* p = dynamic_cast<juce::AudioParameterFloat*> (proc.getParameters().getParameter (id));
+            return p == nullptr ? std::numeric_limits<float>::quiet_NaN() : p->get();
+        };
+
+        // New instance has a deterministic default curve and stable Smooth parameter.
+        {
+            SideChainAudioProcessor proc;
+            auto* smooth = dynamic_cast<juce::AudioParameterFloat*> (
+                proc.getParameters().getParameter ("smooth"));
+            check (smooth != nullptr && smooth->getNormalisableRange().start == 0.0f
+                       && smooth->getNormalisableRange().end == 100.0f
+                       && std::abs (smooth->get() - 50.0f) < 0.01f
+                       && proc.getCurveStateMode() == StateMode::pumpCurve,
+                   "Smooth parameter is 0..100, default 50; new instance has curve mode");
+        }
+
+        // Schema 6 curve and all legacy parameter values round-trip exactly.
+        {
+            SideChainAudioProcessor source;
+            source.getParameters().getParameter ("sidechainAmount")->setValueNotifyingHost (
+                source.getParameters().getParameter ("sidechainAmount")->convertTo0to1 (67.3f));
+            source.getParameters().getParameter ("duckLength")->setValueNotifyingHost (
+                source.getParameters().getParameter ("duckLength")->convertTo0to1 (612.0f));
+            source.getParameters().getParameter ("release")->setValueNotifyingHost (
+                source.getParameters().getParameter ("release")->convertTo0to1 (333.0f));
+            source.getParameters().getParameter ("sidechainOffset")->setValueNotifyingHost (
+                source.getParameters().getParameter ("sidechainOffset")->convertTo0to1 (-12.0f));
+            source.getParameters().getParameter ("smooth")->setValueNotifyingHost (
+                source.getParameters().getParameter ("smooth")->convertTo0to1 (73.4f));
+            const Point custom[] = {{ 0.0, 1.0 }, { 0.1, 0.2 }, { 0.55, 0.6 }, { 1.0, 1.0 }};
+            const bool accepted = source.setPumpCurvePoints (custom, 4);
+            source.getParameters().state.addChild (juce::ValueTree ("FUTURE_CHILD"), -1, nullptr);
+            juce::MemoryBlock saved;
+            source.getStateInformation (saved);
+            const auto savedTree = juce::ValueTree::readFromData (saved.getData(), saved.getSize());
+            SideChainAudioProcessor restored;
+            restored.setStateInformation (saved.getData(), (int) saved.getSize());
+            bool exactCurve = restored.getPumpCurve().size() == 4;
+            for (std::size_t i = 0; i < 4; ++i)
+                exactCurve = exactCurve && restored.getPumpCurve()[i].x == custom[i].x
+                                       && restored.getPumpCurve()[i].y == custom[i].y;
+            check (accepted && exactCurve
+                       && restored.getCurveStateMode() == StateMode::pumpCurve
+                       && (int) savedTree.getProperty ("stateVersion", juce::var (0)) == 6
+                       && savedTree.getChildWithName ("PUMPCURVE").getNumChildren() == 4
+                       && savedTree.getChildWithName ("FUTURE_CHILD").isValid(),
+                   "schema 6 curve serializes as inspectable POINT children and round-trips exactly");
+            check (std::abs (readFloat (restored, "sidechainAmount") - 67.3f) < 0.06f
+                       && std::abs (readFloat (restored, "duckLength") - 612.0f) < 0.1f
+                       && std::abs (readFloat (restored, "release") - 333.0f) < 0.1f
+                       && std::abs (readFloat (restored, "sidechainOffset") + 12.0f) < 0.1f
+                       && std::abs (readFloat (restored, "smooth") - 73.4f) < 0.06f,
+                   "schema 6 round-trip preserves all five parameters");
+        }
+
+        // All historical schemas load original parameter data while remaining legacy.
+        for (int version = 1; version <= 5; ++version)
+        {
+            SideChainAudioProcessor proc;
+            auto oldTree = makeVersionedTree (version);
+            loadTree (proc, oldTree);
+            juce::MemoryBlock saved;
+            proc.getStateInformation (saved);
+            const auto savedTree = juce::ValueTree::readFromData (saved.getData(), saved.getSize());
+            const float expectedLength = version >= 4 ? 612.0f
+                : sid::dsp::DuckEngine::kDuckLengthDefaultMs;
+            const float expectedOffset = version >= 3 ? -12.0f : 0.0f;
+            check (proc.getCurveStateMode() == StateMode::legacy
+                       && std::abs (readFloat (proc, "sidechainAmount") - 67.3f) < 0.06f
+                       && std::abs (readFloat (proc, "duckLength") - expectedLength) < 0.1f
+                       && std::abs (readFloat (proc, "release") - 333.0f) < 0.1f
+                       && std::abs (readFloat (proc, "sidechainOffset") - expectedOffset) < 0.1f
+                       && ! savedTree.getChildWithName ("PUMPCURVE").isValid(),
+                   "legacy state v" + std::to_string (version) + " loads parameters and remains legacy");
+        }
+
+        // Missing curve on schema 6, malformed curve, and unknown children are safe/deterministic.
+        {
+            SideChainAudioProcessor proc;
+            auto missing = makeVersionedTree (6);
+            juce::ValueTree unknown ("FUTURE_CHILD");
+            unknown.setProperty ("value", 42, nullptr);
+            missing.addChild (unknown, -1, nullptr);
+            loadTree (proc, missing);
+            check (proc.getCurveStateMode() == StateMode::legacy
+                       && std::abs (readFloat (proc, "release") - 333.0f) < 0.1f,
+                   "schema 6 missing curve defaults to legacy and tolerates unknown child");
+
+            auto malformed = makeVersionedTree (6);
+            juce::ValueTree curve ("PUMPCURVE");
+            curve.setProperty ("pointCount", 3, nullptr);
+            const Point invalid[] = {{ 0.0, 1.0 }, { 0.5, std::numeric_limits<double>::infinity() }, { 1.0, 1.0 }};
+            for (const auto& point : invalid)
+            {
+                juce::ValueTree p ("POINT");
+                p.setProperty ("x", point.x, nullptr);
+                p.setProperty ("y", point.y, nullptr);
+                curve.addChild (p, -1, nullptr);
+            }
+            malformed.addChild (curve, -1, nullptr);
+            loadTree (proc, malformed);
+            juce::MemoryBlock sanitised;
+            proc.getStateInformation (sanitised);
+            const auto sanitisedTree = juce::ValueTree::readFromData (sanitised.getData(), sanitised.getSize());
+            check (proc.getCurveStateMode() == StateMode::legacy
+                       && PumpCurve::isValid (proc.getPumpCurve().storage().data(), proc.getPumpCurve().size())
+                       && std::abs (readFloat (proc, "sidechainAmount") - 67.3f) < 0.06f
+                       && std::abs (readFloat (proc, "release") - 333.0f) < 0.1f
+                       && ! sanitisedTree.getChildWithName ("PUMPCURVE").isValid(),
+                   "malformed schema 6 curve falls back safely without changing valid parameters");
         }
     }
 

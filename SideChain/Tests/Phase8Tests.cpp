@@ -424,7 +424,7 @@ int main()
                    && proc.getParameters().getParameter ("release") != nullptr
                    && proc.getParameters().getParameter ("duckLength") != nullptr
                    && proc.getParameters().getParameter ("sidechainOffset") != nullptr,
-                   "the four 0.4.0 parameters all exist");
+                   "the four legacy 0.4.0 parameter IDs all exist");
         }
     }
 
@@ -433,7 +433,7 @@ int main()
     // ==================================================================
     printf ("\n3. State round-trips + old-version compatibility\n");
     {
-        // 3.1 Round-trip of all four 0.4.0 parameters.
+        // 3.1 Round-trip of existing 0.4.0 parameters.
         {
             SideChainAudioProcessor proc;
             if (auto* dl = proc.getParameters().getParameter ("duckLength"))

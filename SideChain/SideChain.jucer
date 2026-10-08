@@ -33,6 +33,8 @@
             file="Source/PluginEditor.h"/>
       <FILE id="HdrTgp" name="TransportGate.h" compile="0" resource="0"
             file="Source/TransportGate.h"/>
+      <FILE id="HdrPmc" name="PumpCurve.h" compile="0" resource="0"
+            file="Source/PumpCurve.h"/>
       <FILE id="HdrAuh" name="MusicProdAuth.h" compile="0" resource="0"
             file="Source/MusicProdAuth.h"/>
       <FILE id="SrcAuh" name="MusicProdAuth.cpp" compile="1" resource="0"

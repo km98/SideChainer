@@ -59,12 +59,12 @@
         <CONFIGURATION name="Debug" osxSDK="default" osxCompatibility="12.00 SDK"
                        osxArchitecture="64BitUniversal"
                        isDebug="1" optimisation="1" enablePluginBinaryCopyStep="0"
-                       targetName="SideChain" headerPath=";" libraryPath=";;"
+                       targetName="SideChain" headerPath="/$(SIDECHAIN_JUCE_ROOT)/modules;/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client;/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK" customXcodeFlags="SIDECHAIN_JUCE_ROOT=$(SRCROOT)/../../../../HISE/JUCE" libraryPath=";;"
                        cppLibType="libc++"/>
         <CONFIGURATION name="Release" osxSDK="default" osxCompatibility="12.00 SDK"
                        osxArchitecture="64BitUniversal"
                        isDebug="0" optimisation="3" enablePluginBinaryCopyStep="0"
-                       targetName="SideChain" headerPath=";" libraryPath=";;"
+                       targetName="SideChain" headerPath="/$(SIDECHAIN_JUCE_ROOT)/modules;/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client;/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK" customXcodeFlags="SIDECHAIN_JUCE_ROOT=$(SRCROOT)/../../../../HISE/JUCE" libraryPath=";;"
                        cppLibType="libc++" linkTimeOptimisation="0"
                        stripLocalSymbols="0"/>
       </CONFIGURATIONS>

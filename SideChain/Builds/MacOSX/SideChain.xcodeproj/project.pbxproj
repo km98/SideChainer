@@ -629,6 +629,9 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
@@ -636,13 +639,14 @@
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_LDFLAGS = "-bundle -lSideChain";
 				OTHER_REZFLAGS = "-d ppc_$ppc -d i386_$i386 -d ppc64_$ppc64 -d x86_64_$x86_64 -d arm64_$arm64 -I /System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Versions/A/Headers -I \"$(DEVELOPER_DIR)/Extras/CoreAudio/AudioUnits/AUPublic/AUBase\" -I \"$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AudioUnit.framework/Headers\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 				WRAPPER_EXTENSION = component;
@@ -685,6 +689,9 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
@@ -692,12 +699,13 @@
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_LDFLAGS = "-bundle -lSideChain";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 				WRAPPER_EXTENSION = vst3;
@@ -740,17 +748,21 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
 				INSTALL_PATH = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
 				SKIP_INSTALL = YES;
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 			};
@@ -792,17 +804,21 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
 				INSTALL_PATH = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
 				SKIP_INSTALL = YES;
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 			};
@@ -844,6 +860,9 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
@@ -851,12 +870,13 @@
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_LDFLAGS = "-bundle -lSideChain";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 				WRAPPER_EXTENSION = vst3;
@@ -955,6 +975,9 @@
 					"$(SRCROOT)/../../%",
 					"$(SRCROOT)/../../JuceLibraryCode",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client",
+					"/$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK",
 					"$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client",
 					"$(inherited)",
 				);
@@ -962,13 +985,14 @@
 				INFOPLIST_PREPROCESS = NO;
 				LIBRARY_STYLE = Bundle;
 				MACOSX_DEPLOYMENT_TARGET = 12.00;
-				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
+				MTL_HEADER_SEARCH_PATHS = "$(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../% $(SRCROOT)/../../JuceLibraryCode $(SRCROOT)/../../../../HISE/JUCE/modules /$(SIDECHAIN_JUCE_ROOT)/modules /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_plugin_client /$(SIDECHAIN_JUCE_ROOT)/modules/juce_audio_processors/format_types/VST3_SDK $(SRCROOT)/../../../../HISE/JUCE/modules/juce_audio_plugin_client";
 				OTHER_CFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_CPLUSPLUSFLAGS = "-Wno-reorder -Wno-inconsistent-missing-override";
 				OTHER_LDFLAGS = "-bundle -lSideChain";
 				OTHER_REZFLAGS = "-d ppc_$ppc -d i386_$i386 -d ppc64_$ppc64 -d x86_64_$x86_64 -d arm64_$arm64 -I /System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Versions/A/Headers -I \"$(DEVELOPER_DIR)/Extras/CoreAudio/AudioUnits/AUPublic/AUBase\" -I \"$(DEVELOPER_DIR)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks/AudioUnit.framework/Headers\"";
 				PRODUCT_BUNDLE_IDENTIFIER = com.musicprod.sidechain;
 				PRODUCT_NAME = "SideChain";
+				SIDECHAIN_JUCE_ROOT = "$(SRCROOT)/../../../../HISE/JUCE";
 				USE_HEADERMAP = NO;
 				VALID_ARCHS = "x86_64 arm64";
 				WRAPPER_EXTENSION = component;

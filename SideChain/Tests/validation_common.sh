@@ -12,6 +12,10 @@
 #   resolve_juce_modules   - "$root/modules" on stdout
 #   juce_override_state    - "explicit" | "default" | "missing" (for messages/tests)
 #   require_universal_binary <binary> <label>   - enforces arm64 + x86_64
+#   bundle_content_hash <bundle>                - name-independent bundle fingerprint
+#   stage_customer_product_names <products> <stage> [name]
+#                          - stage the customer-visible PumpCurve.* bundle names and
+#                            prove the rename preserved every byte and identifier
 #
 # JUCE discovery rules
 #   * SIDECHAIN_JUCE_ROOT set: used verbatim. It must exist and contain
@@ -137,4 +141,120 @@ require_universal_binary()
     fi
     printf '[PASS] %s: universal slices "%s" (%s)\n' "$label" "$archs" "$binary"
     return 0
+}
+
+# ---------------------------------------------------------------------------
+# Customer-visible product naming
+# ---------------------------------------------------------------------------
+# The Xcode target (and therefore the built bundle directories) is called
+# SideChain, while the product is PumpCurve. Hosts that derive a displayed name
+# from the bundle filename - FL Studio's VST3 database does - therefore show the
+# wrong product unless the bundle is *staged* under the product name. Renaming the
+# bundle directory is safe and sufficient: bundle identifiers, AU type/subtype/
+# manufacturer, factory symbols, parameter IDs and the executable itself are all
+# unchanged, so existing projects keep resolving and the AU identity is stable.
+PUMPCURVE_DISPLAY_NAME="PumpCurve"
+PUMPCURVE_BUNDLE_ID="com.musicprod.sidechain"
+
+# Name-independent fingerprint of every file inside a bundle. Two bundles with
+# identical fingerprints are byte-identical, whatever they are called.
+bundle_content_hash()
+{
+    local bundle="$1"
+    [ -d "$bundle" ] || return 1
+    ( cd "$bundle" && find . -type f -exec shasum -a 256 {} + | LC_ALL=C sort -k2 | shasum -a 256 | awk '{print $1}' )
+}
+
+# plist_read <plist> <key> -> value on stdout (empty when absent)
+plist_read()
+{
+    plutil -extract "$2" raw -o - "$1" 2>/dev/null || true
+}
+
+# Stage <products>/SideChain.component and <products>/SideChain.vst3 as
+# <stage>/PumpCurve.component and <stage>/PumpCurve.vst3, then prove that the
+# rename changed no byte and no identity. Fails (non-zero) instead of overwriting
+# an existing staged bundle, so a stale staging directory can never masquerade as
+# a fresh build.
+#
+# Usage: stage_customer_product_names <products_dir> <stage_dir> [display_name]
+stage_customer_product_names()
+{
+    local products="$1" stage="$2" display="${3:-$PUMPCURVE_DISPLAY_NAME}"
+    local ok=1 pair src dst name sub src_hash dst_hash
+
+    for pair in "SideChain.component:PumpCurve.component:Components" \
+                "SideChain.vst3:PumpCurve.vst3:VST3"; do
+        src="${pair%%:*}"; rest="${pair#*:}"; dst="${rest%%:*}"; sub="${rest##*:}"
+        name="$(basename "$src")"
+
+        if [ ! -d "$products/$src" ]; then
+            printf '[FAIL] staged product: missing built bundle %s\n' "$products/$src"
+            ok=0
+            continue
+        fi
+        if [ -e "$stage/$dst" ]; then
+            printf '[FAIL] staged product: %s already exists; refusing to overwrite\n' "$stage/$dst"
+            ok=0
+            continue
+        fi
+
+        mkdir -p "$stage" || { ok=0; continue; }
+        ditto "$products/$src" "$stage/$dst" || { printf '[FAIL] ditto failed for %s\n' "$src"; ok=0; continue; }
+
+        src_hash="$(bundle_content_hash "$products/$src")"
+        dst_hash="$(bundle_content_hash "$stage/$dst")"
+        if [ "$src_hash" != "$dst_hash" ]; then
+            printf '[FAIL] %s: staged content differs from the built bundle (%s vs %s)\n' "$dst" "$dst_hash" "$src_hash"
+            ok=0
+        else
+            printf '[PASS] %s: content byte-identical to %s (%s)\n' "$dst" "$name" "$dst_hash"
+        fi
+
+        local src_id dst_id
+        src_id="$(plist_read "$products/$src/Contents/Info.plist" CFBundleIdentifier)"
+        dst_id="$(plist_read "$stage/$dst/Contents/Info.plist" CFBundleIdentifier)"
+        if [ "$src_id" = "$PUMPCURVE_BUNDLE_ID" ] && [ "$dst_id" = "$src_id" ]; then
+            printf '[PASS] %s: bundle identifier preserved (%s)\n' "$dst" "$dst_id"
+        else
+            printf '[FAIL] %s: bundle identifier not preserved (source "%s", staged "%s", expected "%s")\n' \
+                "$dst" "$src_id" "$dst_id" "$PUMPCURVE_BUNDLE_ID"
+            ok=0
+        fi
+
+        local src_meta dst_meta src_name
+        src_meta="$(plutil -extract AudioComponents json -o - "$products/$src/Contents/Info.plist" 2>/dev/null)"
+        dst_meta="$(plutil -extract AudioComponents json -o - "$stage/$dst/Contents/Info.plist" 2>/dev/null)"
+        if [ -n "$src_meta" ] && [ "$src_meta" = "$dst_meta" ]; then
+            printf '[PASS] %s: Audio Unit registration metadata unchanged by the rename\n' "$dst"
+        elif [ -n "$src_meta" ]; then
+            printf '[FAIL] %s: Audio Unit registration metadata changed by the rename\n' "$dst"
+            ok=0
+        fi
+
+        src_name="$(plist_read "$stage/$dst/Contents/Info.plist" CFBundleName)"
+        local src_display
+        src_display="$(plist_read "$stage/$dst/Contents/Info.plist" CFBundleDisplayName)"
+        if [ "$src_name" = "$display" ] && [ "$src_display" = "$display" ]; then
+            printf '[PASS] %s: displayed name is "%s"\n' "$dst" "$display"
+        else
+            printf '[FAIL] %s: displayed name is "%s"/"%s", expected "%s"\n' "$dst" "$src_name" "$src_display" "$display"
+            ok=0
+        fi
+
+        local binary="$stage/$dst/Contents/MacOS/SideChain"
+        if [ -f "$binary" ]; then
+            require_universal_binary "$binary" "$dst executable" || ok=0
+        else
+            printf '[FAIL] %s: expected executable missing (%s)\n' "$dst" "$binary"
+            ok=0
+        fi
+    done
+
+    if [ "$ok" = "1" ]; then
+        ( cd "$stage" && find . -type f -exec shasum -a 256 {} + | LC_ALL=C sort -k2 > SHA256SUMS ) 2>/dev/null
+        printf '[PASS] staged product names ready in %s (file manifest in SHA256SUMS)\n' "$stage"
+        return 0
+    fi
+    return 1
 }

@@ -87,7 +87,12 @@ stages independently:
 6. architecture verification of both products (`lipo`)
 7. VST3 factory/bus harness against the freshly built plugin
 8. AU structural verification (metadata, factory symbol, slices, no installation)
-9. optional official Steinberg validator (reported as a limitation when absent)
+8b. customer-visible product-name staging: the built `SideChain.*` bundles are
+    staged as `PumpCurve.component` / `PumpCurve.vst3` with the rename proven to
+    change no byte, no bundle identifier, no Audio Unit registration metadata and
+    no architecture (see `docs/PUMPCURVE-RELEASE-NAMING.md`)
+9. optional official Steinberg validator (reported as a limitation when absent;
+   validates the customer-named bundle once staging succeeded)
 10. summary, non-zero exit if any required stage failed
 
 `SideChain/Tests/validation_infra_tests.sh` covers the infrastructure itself:

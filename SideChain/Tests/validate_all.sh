@@ -20,6 +20,7 @@
 #   6  architecture verification of both products
 #   7  VST3 factory/bus harness against the freshly built plugin
 #   8  AU structural verification (no installation)
+#   8b customer-visible product-name staging (PumpCurve.* bundles, rename proven)
 #   9  optional official Steinberg validator (never fatal)
 #   10 summary
 #
@@ -281,6 +282,9 @@ PRODUCTS="$OUT_DIR/products"
 DERIVED="$OUT_DIR/derived"
 VST3_BINARY="$PRODUCTS/SideChain.vst3/Contents/MacOS/SideChain"
 AU_BINARY="$PRODUCTS/SideChain.component/Contents/MacOS/SideChain"
+# Customer-visible names: the bundles the installer and every download ship.
+STAGED_PRODUCTS="$OUT_DIR/products-pumpcurve"
+STAGED_VST3_BINARY="$STAGED_PRODUCTS/PumpCurve.vst3/Contents/MacOS/SideChain"
 BUILD_CMD=(xcodebuild -project "$XCODEPROJ" -scheme "$SCHEME" -configuration Release
     ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO
     SIDECHAIN_JUCE_ROOT="$JUCE_ROOT"
@@ -446,6 +450,35 @@ if stage_allowed "AU structural check"; then
 fi
 
 # ---------------------------------------------------------------------------
+banner "8b - CUSTOMER-VISIBLE PRODUCT NAMES"
+# ---------------------------------------------------------------------------
+# The Xcode target is called SideChain, so the built bundles are SideChain.*. The
+# product is PumpCurve and FL Studio's VST3 database derives its entry name from
+# the bundle filename, so the shipped bundles must be staged as PumpCurve.*.
+# staging_ok stays 0 unless the rename is proven to preserve every byte, the
+# bundle identifier, the AU registration metadata and both architectures.
+staging_ok=0
+if stage_allowed "customer-visible product names"; then
+    stage_log="$OUT_DIR/stage8b-product-names.log"
+    if [ -d "$STAGED_PRODUCTS" ]; then
+        echo "  ERROR: staging directory already exists: $STAGED_PRODUCTS"
+        record "customer-visible product names" "FAIL" "staging directory already present; refusing to reuse it"
+        FAILED_REQUIRED=1
+        abort_to_summary "customer-visible product names"
+    elif stage_customer_product_names "$PRODUCTS" "$STAGED_PRODUCTS" >"$stage_log" 2>&1; then
+        staging_ok=1
+        sed 's/^/  /' "$stage_log"
+        record "customer-visible product names" "PASS" \
+            "PumpCurve.component + PumpCurve.vst3 staged byte-identical; identifiers, AU metadata and architectures unchanged"
+    else
+        sed 's/^/  /' "$stage_log"
+        record "customer-visible product names" "FAIL" "see $stage_log"
+        FAILED_REQUIRED=1
+        abort_to_summary "customer-visible product names"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 banner "9 - OPTIONAL OFFICIAL STEINBERG VALIDATOR"
 # ---------------------------------------------------------------------------
 if stage_allowed "official VST3 validator"; then
@@ -470,7 +503,13 @@ if stage_allowed "official VST3 validator"; then
         record "official VST3 validator" "LIMITATION" "no official validator binary available; not run"
     else
         printf '  using: %s\n' "$validator_bin"
-        if "$validator_bin" "$PRODUCTS/SideChain.vst3" >"$VALIDATOR_LOG" 2>&1; then
+        # Validate the bundle the customer actually receives when staging succeeded.
+        validator_target="$PRODUCTS/SideChain.vst3"
+        if [ "$staging_ok" = "1" ]; then
+            validator_target="$STAGED_PRODUCTS/PumpCurve.vst3"
+            printf '  target: %s (customer bundle name)\n' "$validator_target"
+        fi
+        if "$validator_bin" "$validator_target" >"$VALIDATOR_LOG" 2>&1; then
             tail -15 "$VALIDATOR_LOG" | sed 's/^/  /'
             record "official VST3 validator" "PASS" "$validator_bin reported success (see $VALIDATOR_LOG)"
         else

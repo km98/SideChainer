@@ -1,0 +1,79 @@
+#!/bin/sh
+# PumpCurve installer — preinstall (runs as root, before the payload is written).
+#
+# WHY THIS EXISTS
+#   0.4.0/0.4.1 beta builds shipped the *same* Audio Unit identity
+#   (aufx / SdCh / Musc, bundle id com.musicprod.sidechain) inside bundles named
+#   SideChain.* (and, before that, SideChainer.*). This installer ships the same
+#   component inside a bundle named PumpCurve.*. If an old bundle were left in
+#   place, the system would register the same AU tuple twice and hosts could load
+#   the stale one.
+#
+# POLICY
+#   * Only the exact legacy bundle names below are considered.
+#   * A legacy bundle is deleted ONLY when it really is ours: its Info.plist
+#     CFBundleIdentifier must equal com.musicprod.sidechain. Anything else is left
+#     untouched and reported, so an unrelated plug-in can never be removed.
+#   * The current PumpCurve.* names are never touched.
+#   * Nothing here is fatal: a failure to remove a legacy bundle leaves a working
+#     install (the new bundle is still written) and is reported in the installer log.
+#
+# TESTABILITY
+#   Set PUMPCURVE_LEGACY_ROOTS to a colon-separated list of fake library roots to
+#   exercise the logic against a fixture instead of the live machine
+#   (see test_preinstall.sh).
+
+set -u
+
+OUR_BUNDLE_ID="com.musicprod.sidechain"
+LEGACY_COMPONENTS="SideChain.component SideChainer.component"
+LEGACY_VST3="SideChain.vst3 SideChainer.vst3"
+
+log() { echo "pumpcurve-preinstall: $*"; }
+
+plist_value() { # <plist> <key> -> value or empty
+  /usr/bin/plutil -extract "$2" raw -o - "$1" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Print :$2" "$1" 2>/dev/null \
+    || true
+}
+
+remove_if_ours() { # <bundle path> <description>
+  bundle="$1"; kind="$2"
+  [ -e "$bundle" ] || return 0
+  id="$(plist_value "$bundle/Contents/Info.plist" CFBundleIdentifier)"
+  if [ "$id" = "$OUR_BUNDLE_ID" ]; then
+    if rm -rf "$bundle"; then
+      log "removed legacy $kind: $bundle (CFBundleIdentifier=$id)"
+    else
+      log "WARNING: could not remove legacy $kind: $bundle"
+    fi
+  else
+    log "left in place (not ours): $bundle (CFBundleIdentifier=${id:-<none>})"
+  fi
+  return 0
+}
+
+roots=""
+if [ -n "${PUMPCURVE_LEGACY_ROOTS:-}" ]; then
+  roots="$PUMPCURVE_LEGACY_ROOTS"
+  log "TEST MODE: using roots from PUMPCURVE_LEGACY_ROOTS"
+else
+  roots="/Library"
+  for home in /Users/*; do
+    [ -d "$home/Library" ] && roots="$roots:$home/Library"
+  done
+fi
+
+printf '%s\n' "$roots" | tr ':' '\n' | while IFS= read -r root; do
+  [ -n "$root" ] || continue
+  [ -d "$root" ] || continue
+  for b in $LEGACY_COMPONENTS; do
+    remove_if_ours "$root/Audio/Plug-Ins/Components/$b" "Audio Unit"
+  done
+  for b in $LEGACY_VST3; do
+    remove_if_ours "$root/Audio/Plug-Ins/VST3/$b" "VST3"
+  done
+done
+
+log "done"
+exit 0

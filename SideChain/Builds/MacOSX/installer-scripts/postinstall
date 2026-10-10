@@ -1,0 +1,40 @@
+#!/bin/sh
+# PumpCurve installer — postinstall (runs as root, after the payload is written).
+#
+# The Audio Component registrar caches the display name it read when a bundle was
+# first registered. After an upgrade from a SideChain.* bundle the cache can keep
+# advertising the OLD name ("Music-Prod: SideChainer" was measured on a real machine
+# even after the correct bundle was installed) until the registrar is restarted.
+# Restarting the per-user registrar makes the freshly installed AU appear with its
+# correct name immediately. It is safe: the process is relaunched on demand by the
+# system, and hosts pick it up on their next launch.
+#
+# Everything here is best-effort. A failure must never fail the installation.
+set -u
+
+log() { echo "pumpcurve-postinstall: $*"; }
+
+restart_registrar_for() { # <user>
+  user="$1"
+  [ -n "$user" ] || return 0
+  case "$user" in root|loginwindow|_*|"") return 0 ;; esac
+  if id "$user" >/dev/null 2>&1; then
+    if killall -u "$user" AudioComponentRegistrar 2>/dev/null; then
+      log "asked the audio component registrar to re-read plug-ins for user '$user'"
+    else
+      log "audio component registrar for '$user' was not running (nothing to do)"
+    fi
+  fi
+}
+
+console_user="$(/usr/bin/stat -f %Su /dev/console 2>/dev/null || true)"
+restart_registrar_for "$console_user"
+
+# Also cover other currently logged-in users, so nobody keeps seeing the old name.
+/usr/bin/who 2>/dev/null | /usr/bin/awk '{print $1}' | /usr/bin/sort -u | while IFS= read -r u; do
+  [ "$u" = "$console_user" ] && continue
+  restart_registrar_for "$u"
+done
+
+log "done"
+exit 0

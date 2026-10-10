@@ -195,6 +195,126 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+printf '\nCustomer-visible product-name staging\n'
+# ---------------------------------------------------------------------------
+# The shipped bundles are PumpCurve.* even though the Xcode target is SideChain,
+# so the rename has to be staged and proven. These fixtures use real universal
+# Mach-O files, so the architecture and byte-identity checks are exercised for
+# real rather than mocked.
+mkstub_bundle() { # <bundle-dir> <kind: au|vst3> <bundle-id> <display-name>
+    local dir="$1" kind="$2" id="$3" display="$4"
+    mkdir -p "$dir/Contents/MacOS"
+    cp "$TMP_ROOT/universal" "$dir/Contents/MacOS/SideChain"
+    if [ "$kind" = "au" ]; then
+        cat > "$dir/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>SideChain</string>
+  <key>CFBundleIdentifier</key><string>$id</string>
+  <key>CFBundleName</key><string>$display</string>
+  <key>CFBundleDisplayName</key><string>$display</string>
+  <key>AudioComponents</key><array><dict>
+    <key>name</key><string>Music-Prod: $display</string>
+    <key>factoryFunction</key><string>SideChainAUFactory</string>
+    <key>manufacturer</key><string>Musc</string>
+    <key>type</key><string>aufx</string>
+    <key>subtype</key><string>SdCh</string>
+    <key>version</key><integer>1025</integer>
+  </dict></array>
+</dict></plist>
+EOF
+    else
+        cat > "$dir/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>CFBundleExecutable</key><string>SideChain</string>
+  <key>CFBundleIdentifier</key><string>$id</string>
+  <key>CFBundleName</key><string>$display</string>
+  <key>CFBundleDisplayName</key><string>$display</string>
+</dict></plist>
+EOF
+    fi
+}
+
+if [ -f "$TMP_ROOT/universal" ]; then
+    # 1. A faithful fixture: staging must succeed and keep every byte.
+    fx="$TMP_ROOT/naming/products"
+    mkdir -p "$fx"
+    mkstub_bundle "$fx/SideChain.component" au   "$PUMPCURVE_BUNDLE_ID" "$PUMPCURVE_DISPLAY_NAME"
+    mkstub_bundle "$fx/SideChain.vst3"      vst3 "$PUMPCURVE_BUNDLE_ID" "$PUMPCURVE_DISPLAY_NAME"
+    if stage_customer_product_names "$fx" "$TMP_ROOT/naming/staged" >"$TMP_ROOT/naming/ok.log" 2>&1; then
+        check 1 "valid built bundles are staged under the PumpCurve names"
+    else
+        check 0 "valid built bundles are staged under the PumpCurve names"
+        sed 's/^/        /' "$TMP_ROOT/naming/ok.log"
+    fi
+    check "$([ -d "$TMP_ROOT/naming/staged/PumpCurve.component" ] && [ -d "$TMP_ROOT/naming/staged/PumpCurve.vst3" ] && echo 1 || echo 0)" \
+        "both staged bundles exist as PumpCurve.component and PumpCurve.vst3"
+    check "$([ "$(bundle_content_hash "$fx/SideChain.component")" = "$(bundle_content_hash "$TMP_ROOT/naming/staged/PumpCurve.component")" ] && echo 1 || echo 0)" \
+        "staged AU content hash equals the built AU (rename changed no byte)"
+    check "$([ -s "$TMP_ROOT/naming/staged/SHA256SUMS" ] && echo 1 || echo 0)" \
+        "a staged-file manifest is written next to the renamed bundles"
+
+    # 2. An existing staging directory must never be reused silently.
+    if stage_customer_product_names "$fx" "$TMP_ROOT/naming/staged" >"$TMP_ROOT/naming/again.log" 2>&1; then
+        check 0 "staging refuses to overwrite an existing PumpCurve bundle"
+    else
+        check "$(grep -q 'refusing to overwrite' "$TMP_ROOT/naming/again.log" && echo 1 || echo 0)" \
+            "staging refuses to overwrite an existing PumpCurve bundle"
+    fi
+
+    # 3. A foreign bundle identifier must be rejected, not silently renamed.
+    fx2="$TMP_ROOT/naming-foreign/products"
+    mkdir -p "$fx2"
+    mkstub_bundle "$fx2/SideChain.component" au   "com.example.someone-else" "$PUMPCURVE_DISPLAY_NAME"
+    mkstub_bundle "$fx2/SideChain.vst3"      vst3 "com.example.someone-else" "$PUMPCURVE_DISPLAY_NAME"
+    if stage_customer_product_names "$fx2" "$TMP_ROOT/naming-foreign/staged" >"$TMP_ROOT/naming-foreign/bad-id.log" 2>&1; then
+        check 0 "a bundle with a foreign identifier is rejected"
+    else
+        check "$(grep -q 'bundle identifier not preserved' "$TMP_ROOT/naming-foreign/bad-id.log" && echo 1 || echo 0)" \
+            "a bundle with a foreign identifier is rejected"
+    fi
+
+    # 4. A wrong displayed name must be rejected: the whole point of the rename.
+    fx3="$TMP_ROOT/naming-wrongname/products"
+    mkdir -p "$fx3"
+    mkstub_bundle "$fx3/SideChain.component" au   "$PUMPCURVE_BUNDLE_ID" "SideChain"
+    mkstub_bundle "$fx3/SideChain.vst3"      vst3 "$PUMPCURVE_BUNDLE_ID" "SideChain"
+    if stage_customer_product_names "$fx3" "$TMP_ROOT/naming-wrongname/staged" >"$TMP_ROOT/naming-wrongname/bad-name.log" 2>&1; then
+        check 0 "a bundle that does not display as PumpCurve is rejected"
+    else
+        check "$(grep -q 'displayed name' "$TMP_ROOT/naming-wrongname/bad-name.log" && echo 1 || echo 0)" \
+            "a bundle that does not display as PumpCurve is rejected"
+    fi
+
+    # 5. A missing built bundle must be reported rather than half-staged.
+    fx4="$TMP_ROOT/naming-missing/products"
+    mkdir -p "$fx4"
+    mkstub_bundle "$fx4/SideChain.component" au "$PUMPCURVE_BUNDLE_ID" "$PUMPCURVE_DISPLAY_NAME"
+    if stage_customer_product_names "$fx4" "$TMP_ROOT/naming-missing/staged" >"$TMP_ROOT/naming-missing/missing.log" 2>&1; then
+        check 0 "a missing built VST3 bundle fails the staging stage"
+    else
+        check "$(grep -q 'missing built bundle' "$TMP_ROOT/naming-missing/missing.log" && echo 1 || echo 0)" \
+            "a missing built VST3 bundle fails the staging stage"
+    fi
+else
+    check 0 "product-name staging fixtures available (universal fixture missing)"
+fi
+
+# The stage must be wired into validate_all.sh, and the shipped names must not
+# reintroduce the target name anywhere the customer can see it.
+printf '\nWiring of the staging stage into validate_all.sh\n'
+if grep -q 'stage_customer_product_names' "$SCRIPT_DIR/validate_all.sh"; then
+    check 1 "validate_all.sh calls the product-name staging helper"
+else
+    check 0 "validate_all.sh calls the product-name staging helper"
+fi
+check "$(grep -q 'CUSTOMER-VISIBLE PRODUCT NAMES' "$SCRIPT_DIR/validate_all.sh" && echo 1 || echo 0)" \
+    "validate_all.sh reports the staging stage in its output"
+check "$(grep -q 'products-pumpcurve' "$SCRIPT_DIR/validate_all.sh" && echo 1 || echo 0)" \
+    "validate_all.sh keeps the staged bundles outside the tracked release assets"
+
+# ---------------------------------------------------------------------------
 printf '\n'
 echo "============================================================"
 printf ' %s/%s infrastructure checks passed\n' "$((checks - failures))" "$checks"

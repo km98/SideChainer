@@ -271,6 +271,10 @@ jobs:
 
           if ($failed -ne 0) { Write-Host "VERIFIER CONTROL: FAIL ($failed)"; exit 1 }
           Write-Host "VERIFIER CONTROL: PASS"
+          # GitHub runs pwsh as ". <script>; exit $LASTEXITCODE", and the negative
+          # control deliberately leaves 1 there: without this the step reports a
+          # failure for a run whose own transcript records zero problems.
+          exit 0
 
       - name: Record signature state
         id: signature

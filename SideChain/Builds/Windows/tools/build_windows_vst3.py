@@ -190,6 +190,19 @@ PATCHED_MARKERS = ("juce_core/logging/juce_AudioThreadGuard.h",
                    "juce_core/logging/juce_AudioThreadGuard.cpp")
 
 
+def juce_modules_root(path):
+    """Return the JUCE modules directory a path points at, or None.
+
+    Include paths appear both as ".../modules" and as ".../modules/juce_core", so
+    the caller's path and its parent are both considered.
+    """
+    path = pathlib.Path(path)
+    for candidate in (path, path.parent):
+        if (candidate / "juce_core" / "juce_core.h").is_file():
+            return candidate
+    return None
+
+
 def module_dir_has_patched_marker(module_dir):
     module_dir = pathlib.Path(module_dir)
     for marker in PATCHED_MARKERS:
@@ -245,12 +258,14 @@ def verify_generated_project_uses_patched_juce():
         tokens += re.findall(r'[A-Za-z]:[^;"<>]*?\\juce_core', text)
         for token in tokens:
             candidate = (path.parent / token).resolve()
-            if not candidate.is_dir():
+            root = juce_modules_root(candidate)
+            if root is None:
+                # Not a JUCE modules directory (a source file path, a SDK path, ...).
                 continue
-            if module_dir_has_patched_marker(candidate):
-                matched.append(candidate)
+            if module_dir_has_patched_marker(root):
+                matched.append(root)
             else:
-                drifted.append(candidate)
+                drifted.append(root)
     if drifted:
         return fail("the generated project also references JUCE modules without the patched "
                     "files: %s" % sorted({str(d) for d in drifted})[:3])

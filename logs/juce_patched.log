@@ -1,0 +1,12 @@
+  downloading https://codeload.github.com/juce-framework/JUCE/tar.gz/refs/tags/6.1.3
+  JUCE 6.1.3 archive sha256: c3ab91886cbbaf0981932134a461bb3ef35dd379cb5521a0a44697767c4e30d6
+  extracted stock JUCE 6.1.3 -> D:\a\_temp\juce-patched
+  applied overlay: JUCE-6.1.3-patched-overlay.tar.gz (351 files)
+== JUCE 6.1.3 tree verification ==
+  root:            D:\a\_temp\juce-patched
+  manifest:        JUCE-6.1.3-patched-modules.sha256 (1798 files)
+  files found:     1798
+  ignored:         juce_audio_devices/native/oboe/
+  every file byte-identical to the patched tree the builds were validated against
+
+JUCE TREE: PASS

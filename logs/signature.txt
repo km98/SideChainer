@@ -1,0 +1,2 @@
+signature state (NotSigned is expected: no Authenticode certificate in this pipeline)
+Setup.exe: missing

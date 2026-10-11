@@ -357,25 +357,53 @@ def check_notarization(gate, macos_dir):
                                 "package is notarised but the disk image is not stapled")
         return gate.add("notarisation", PASS, detail, claim=str(macos_dir))
 
-    have = []
-    if pathlib.Path.home().joinpath(".private_keys").is_dir():
-        keys = list(pathlib.Path.home().joinpath(".private_keys").glob("AuthKey_*.p8"))
-        if keys:
-            have.append("an App Store Connect API key file (issuer id not stored)")
-    for service in ("AC_PASSWORD", "notarytool-profile"):
-        rc, _ = sh(["security", "find-generic-password", "-s", service])
-        if rc == 0:
-            have.append("keychain item '%s'" % service)
+    have, missing = notarization_credentials()
     reason = ("Gatekeeper reports: %s" % out_spctl.strip().splitlines()[0]
               if out_spctl.strip() else "no notarisation ticket")
     gate.add("notarisation", BLOCKED,
-             "%s; credentials present: %s" % (reason, ", ".join(have) or "none"),
+             "%s; credentials present: %s; still missing: %s"
+             % (reason, ", ".join(have) or "none", "; ".join(missing) or "nothing"),
              claim=str(macos_dir))
-    gate.add("notarisation", INFO,
-             "minimum setup when credentials exist: xcrun notarytool store-credentials "
-             "--keychain-profile AC_PASSWORD, then notarytool submit <pkg> --wait, "
-             "then xcrun stapler staple <pkg> and re-run this gate")
+    gate.add("notarisation", INFO, notarization_next_step(pkg, missing))
     return BLOCKED
+
+
+def notarization_credentials():
+    """Which notarisation credentials exist on this machine, and what is missing.
+
+    Presence only: no credential value is read, printed or put on a command line.
+    notarytool accepts either a stored keychain profile or an App Store Connect API
+    key, and the API-key route needs BOTH the .p8 file and the issuer id - the key
+    id sits in the file name, but the issuer id can only come from App Store
+    Connect, so its absence is the blocker worth naming precisely.
+    """
+    have, missing = [], []
+    for profile in ("AC_PASSWORD", "SideChainerNotary", "notarytool-profile"):
+        rc, _ = sh(["security", "find-generic-password", "-s", profile])
+        if rc == 0:
+            have.append("keychain profile '%s'" % profile)
+    keys = sorted(pathlib.Path.home().joinpath(".private_keys").glob("AuthKey_*.p8"))
+    if keys:
+        have.append("App Store Connect API key file %s" % ", ".join(k.name for k in keys))
+        if os.environ.get("ASC_ISSUER_ID"):
+            have.append("issuer id (ASC_ISSUER_ID is set)")
+        else:
+            missing.append("the App Store Connect issuer id for %s (App Store Connect > "
+                           "Users and Access > Integrations > App Store Connect API) - "
+                           "export ASC_ISSUER_ID to supply it" % keys[0].name)
+    if not have:
+        missing.append("every notarisation credential (stored keychain profile or API key)")
+    return have, missing
+
+
+def notarization_next_step(pkg, missing):
+    if not missing:
+        return ("credentials are available: xcrun notarytool submit \"%s\" --wait, then "
+                "xcrun stapler staple \"%s\", then re-run this gate" % (pkg, pkg))
+    return ("blocked on %s; once supplied either store a profile with xcrun notarytool "
+            "store-credentials --keychain-profile AC_PASSWORD or submit directly with "
+            "--key/--key-id/--issuer, then xcrun stapler staple \"%s\" and re-run this "
+            "gate" % ("; ".join(missing), pkg))
 
 
 def check_windows(gate, windows_dir):

@@ -101,20 +101,27 @@ def product_identity(data, product=PRODUCT, version=None):
     """Evidence read straight out of the module binary.
 
     A JUCE VST3 embeds the plug-in name as a UTF-8 C string (the factory class
-    name) and the Windows version resource repeats it as UTF-16LE. Both are
-    checked, plus the absence of the legacy product names, because "the file is
-    called PumpCurve.vst3" says nothing about what is inside it.
+    name, which hosts list the plug-in under) and repeats it in the Windows version
+    resource as UTF-16LE (the product name hosts and Explorer display). "The file is
+    called PumpCurve.vst3" says nothing about either, so both are checked.
+
+    Legacy names are reported in two strengths, because they mean different things:
+    a UTF-16 occurrence is a version-resource value, i.e. customer visible, while a
+    UTF-8 occurrence is usually a compiled-in source path or target name.
     """
     utf8 = product.encode("utf-8")
     utf16 = product.encode("utf-16-le")
-    legacy_hits = []
+    legacy_utf16, legacy_utf8 = [], []
     for legacy in LEGACY_PRODUCT_NAMES:
-        if legacy.encode("utf-16-le") in data and legacy.encode("utf-8") in data:
-            legacy_hits.append(legacy)
+        if legacy.encode("utf-16-le") in data:
+            legacy_utf16.append(legacy)
+        if legacy.encode("utf-8") in data:
+            legacy_utf8.append(legacy)
     info = {
         "class_name_utf8": utf8 in data,
         "product_name_utf16le": utf16 in data,
-        "legacy_names_present": legacy_hits,
+        "legacy_names_utf16": legacy_utf16,
+        "legacy_names_utf8": legacy_utf8,
     }
     if version:
         info["version_utf16le"] = version.encode("utf-16-le") in data
@@ -146,14 +153,29 @@ def inspect_module(module_path, version=None, expected_product=PRODUCT):
     print("  class name '%s' present:        %s" % (expected_product, identity["class_name_utf8"]))
     print("  product name '%s' in version resource: %s"
           % (expected_product, identity["product_name_utf16le"]))
+    if not identity["class_name_utf8"]:
+        ok = False
+        print("  FAIL: the VST3 factory class name '%s' is not in the binary" % expected_product)
+    if not identity["product_name_utf16le"]:
+        ok = False
+        print("  FAIL: the version resource does not name the product '%s'; Windows would "
+              "show the internal project name instead" % expected_product)
     if version:
         print("  version '%s' in version resource:       %s" % (version, identity["version_utf16le"]))
-    if identity["legacy_names_present"]:
+        if not identity["version_utf16le"]:
+            ok = False
+            print("  FAIL: the version resource does not carry version '%s'" % version)
+    if identity["legacy_names_utf16"]:
         ok = False
-        print("  FAIL: legacy product name(s) still inside the binary: %s"
-              % ", ".join(identity["legacy_names_present"]))
+        print("  FAIL: legacy product name(s) in the version resource (customer visible): %s"
+              % ", ".join(identity["legacy_names_utf16"]))
     else:
-        print("  no legacy SideChain/SideChainer product name inside the binary")
+        print("  no legacy product name in the version resource")
+    if identity["legacy_names_utf8"]:
+        # Compiled-in source paths and target names legitimately carry the project
+        # name; reported, never treated as an identity failure.
+        print("  note: legacy name(s) appear as plain strings (source paths/target names): %s"
+              % ", ".join(identity["legacy_names_utf8"]))
     return 0 if ok else 1
 
 

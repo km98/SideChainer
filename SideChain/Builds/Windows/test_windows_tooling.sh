@@ -199,6 +199,19 @@ grep -q 'built_module_sha256' "$TOOLS/build_windows_vst3.py"
 check $? "the driver proves the staged module is the built module"
 python3 "$TOOLS/stage_windows_vst3.py" --self-test >/dev/null 2>&1
 check $? "staging self-test passes, flat-module cases included"
+python3 "$TOOLS/build_windows_vst3.py" --self-test >/dev/null 2>&1
+check $? "version-resource identity self-test passes"
+# JUCE fills ProductName/FileDescription from the *project* name (SideChain), so the
+# generated resource must be corrected before compiling or Windows shows the wrong
+# product name. This is a customer-visible identity claim, not a cosmetic detail.
+grep -q 'def fix_generated_resource_identity' "$TOOLS/build_windows_vst3.py"
+check $? "the driver corrects the generated version resource"
+grep -q 'resources.rc.pre-pumpcurve' "$TOOLS/build_windows_vst3.py"
+check $? "the original generated resource is preserved for review"
+grep -q 'product_identity_rc' "$TOOLS/build_windows_vst3.py"
+check $? "the resource correction is recorded in the run manifest"
+grep -q 'legacy_names_utf16' "$TOOLS/stage_windows_vst3.py"
+check $? "staging separates version-resource identity from compiled-in paths"
 
 # ---------------------------------------------------------------------------
 echo

@@ -24,6 +24,10 @@ What --build does, in order
     and packages a deterministic ZIP,
  6. writes RUN-MANIFEST.json with every artifact hash.
 
+Between 2 and 3 the generated Windows version resource is corrected: JUCE fills
+its ProductName/FileDescription from the *project* name, which is SideChain, and
+the customer must not see that as the product name.
+
 Prerequisites on Windows: Visual Studio 2022 with "Desktop development with C++"
 (v143) plus MSBuild on PATH from a Developer Command Prompt. CMake is not used.
 
@@ -38,6 +42,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 EXPECT_PLUGIN_NAME = "PumpCurve"
 EXPECT_PLUGIN_CODE = "SdCh"
@@ -361,6 +366,106 @@ def locate_built_artifact(builds):
     return None
 
 
+def fix_generated_resource_identity(builds_dir):
+    """Rewrite the product identity JUCE writes into the generated Windows .rc.
+
+    JUCE 6.1.3 fills the VERSIONINFO resource from *project* names - see
+    extras/Build/juce_build_tools/utils/juce_ResourceRc.cpp, where
+    ``ProductName`` and ``FileDescription`` both come from the project name and
+    only ``CompanyName`` comes from the company - and this project is called
+    SideChain. The compiled module would therefore report "SideChain" as its
+    product name in Windows file properties and in host plug-in information even
+    though its VST3 class name is PumpCurve.
+
+    Projucer regenerates resources.rc on every export, so the correction has to run
+    after the resave and before MSBuild. Each generated file is rewritten in place,
+    the original is preserved once as resources.rc.pre-pumpcurve for review, and
+    the before/after hashes are returned for the run manifest.
+    """
+    builds_dir = pathlib.Path(builds_dir)
+    candidates = sorted(p for p in builds_dir.rglob("resources.rc") if p.is_file())
+    if not candidates:
+        return None, "no generated resources.rc under %s (the exporter layout changed?)" % builds_dir
+
+    pattern = re.compile(r'(VALUE\s+"(?:ProductName|FileDescription)",\s+")[^"]*(")')
+    info = {}
+    for rc in candidates:
+        original = rc.read_text(encoding="utf-8", errors="replace")
+        rewritten, matched = pattern.subn(r"\g<1>%s\g<2>" % EXPECT_PLUGIN_NAME, original)
+        # "changes" counts real edits: re-running on an already corrected file must
+        # report zero, otherwise a rerun would look like it modified the build.
+        changes = matched if rewritten != original else 0
+        entry = {"path": str(rc), "changes": changes, "values_matched": matched,
+                 "before_sha256": hashlib.sha256(original.encode("utf-8")).hexdigest(),
+                 "after_sha256": hashlib.sha256(rewritten.encode("utf-8")).hexdigest()}
+        if changes:
+            backup = rc.with_suffix(rc.suffix + ".pre-pumpcurve")
+            if not backup.exists():
+                backup.write_text(original, encoding="utf-8")
+            rc.write_text(rewritten, encoding="utf-8")
+            entry["backup"] = str(backup)
+            print("  version resource: %s -> ProductName/FileDescription = %s (%d value(s))"
+                  % (rc.relative_to(builds_dir), EXPECT_PLUGIN_NAME, changes))
+        else:
+            print("  version resource: %s already identifies %s"
+                  % (rc.relative_to(builds_dir), EXPECT_PLUGIN_NAME))
+        info[str(rc.relative_to(builds_dir))] = entry
+
+    leftover = [rel for rel, entry in info.items()
+                if "VALUE \"ProductName\"" in (builds_dir / rel).read_text(
+                    encoding="utf-8", errors="replace")
+                and 'VALUE "ProductName", "%s"' % EXPECT_PLUGIN_NAME
+                not in (builds_dir / rel).read_text(encoding="utf-8", errors="replace")]
+    if leftover:
+        return None, "generated resource still names another product: %s" % ", ".join(leftover)
+    return info, None
+
+
+def self_test_rc_identity():
+    """Fixture test for the version-resource rewrite (runs on any OS)."""
+    print("== version-resource identity self-test (fixture) ==")
+    with tempfile.TemporaryDirectory() as tmp:
+        builds = pathlib.Path(tmp) / "Builds" / "VisualStudio2022"
+        (builds / "SideChain_VST3").mkdir(parents=True)
+        rc = builds / "SideChain_VST3" / "resources.rc"
+        rc.write_text('BLOCK "040904b0"\nBEGIN\n'
+                      '    VALUE "CompanyName", "Music-Prod"\n'
+                      '    VALUE "FileDescription", "SideChain"\n'
+                      '    VALUE "ProductName", "SideChain"\n'
+                      'END\n', encoding="utf-8")
+        info, error = fix_generated_resource_identity(builds)
+        if error:
+            return fail("self-test: %s" % error)
+        text = rc.read_text(encoding="utf-8")
+        if 'VALUE "ProductName", "PumpCurve"' not in text:
+            return fail("self-test: ProductName was not rewritten")
+        if 'VALUE "FileDescription", "PumpCurve"' not in text:
+            return fail("self-test: FileDescription was not rewritten")
+        if 'VALUE "CompanyName", "Music-Prod"' not in text:
+            return fail("self-test: CompanyName must not be touched")
+        backup = builds / "SideChain_VST3" / "resources.rc.pre-pumpcurve"
+        if not backup.is_file() or 'VALUE "ProductName", "SideChain"' not in backup.read_text(encoding="utf-8"):
+            return fail("self-test: the original resource was not preserved for review")
+        print("  ok: ProductName/FileDescription rewritten, CompanyName untouched, original kept")
+        first = info[str(rc.relative_to(builds))]
+        if not first["changes"] or first["before_sha256"] == first["after_sha256"]:
+            return fail("self-test: the rewrite was not recorded as a change")
+        info2, error2 = fix_generated_resource_identity(builds)
+        if error2:
+            return error2
+        if info2[str(rc.relative_to(builds))]["changes"] != 0:
+            return fail("self-test: the rewrite is not idempotent")
+        print("  ok: running it again changes nothing")
+        empty = pathlib.Path(tmp) / "empty"
+        empty.mkdir()
+        _, error3 = fix_generated_resource_identity(empty)
+        if not error3:
+            return fail("self-test: a missing resource file must be reported, not ignored")
+        print("  ok: a missing generated resource is reported instead of silently skipped")
+    print("SELF-TEST: PASS")
+    return 0
+
+
 def build(juce_root, projucer, out_dir, msbuild_arg=None):
     rc = require_windows("--build")
     if rc:
@@ -397,6 +502,12 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
     rc = verify_generated_project_uses_patched_juce()
     if rc != 0:
         return rc
+
+    # 1b. The exporter regenerated the Windows version resource: make it name the
+    #     product rather than the project before anything is compiled.
+    rc_info, rc_error = fix_generated_resource_identity(PROJECT / "Builds" / "VisualStudio2022")
+    if rc_error:
+        return fail(rc_error)
 
     # 2. Build the VST3 target, x64 Release.
     msbuild = find_msbuild(msbuild_arg)
@@ -466,6 +577,7 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
                 "(verified against juce/JUCE-6.1.3-patched-modules.sha256)",
         "projucer": {"path": str(pj), "sha256": sha256(pj)},
         "built_bundle": str(built),
+        "product_identity_rc": rc_info,
         "built_module_sha256": built_module_sha256,
         "staged_module_sha256": staged_manifest.get("module_sha256"),
         "artifacts": artifacts,
@@ -489,6 +601,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--check", action="store_true", help="validate the build inputs only")
+    ap.add_argument("--self-test", action="store_true",
+                    help="run the version-resource identity self-test (any OS)")
     ap.add_argument("--build", action="store_true", help="build the VST3 (Windows)")
     ap.add_argument("--build-projucer", action="store_true",
                     help="compile Projucer 6.1.3 from a stock tree (Windows)")
@@ -501,6 +615,8 @@ def main():
 
     if args.check:
         return check_tree(args.juce_root or os.environ.get("SIDECHAIN_JUCE_ROOT"))
+    if args.self_test:
+        return self_test_rc_identity()
     if args.build_projucer:
         if not args.juce_root:
             ap.error("--build-projucer needs --juce-root")

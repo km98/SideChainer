@@ -20,6 +20,31 @@ binary, the installer and the install-test evidence.
 | Built by | [`.github/workflows/windows-vst3.yml`](../../../.github/workflows/windows-vst3.yml) |
 | Code signing | **none** — no Authenticode certificate exists, so the installer is unsigned |
 
+## 0. What a real MSVC build actually produces
+
+Two facts only a real Windows build reveals. Both are handled by the tooling, both
+are covered by tests (`stage_windows_vst3.py --self-test`,
+`build_windows_vst3.py --self-test`), and both were found by running the pipeline
+rather than by reading documentation.
+
+* **The exporter links a flat module, not a bundle.** JUCE 6.1.3's Visual Studio
+exporter emits a single PE DLL called `SideChain.vst3` in
+`Builds/VisualStudio2022/x64/Release/VST3/`; unlike the Xcode exporter it assembles
+no `Contents/` hierarchy. `stage_windows_vst3.py` accepts either shape and always
+writes the canonical bundle `PumpCurve.vst3/Contents/x86_64-win/PumpCurve.vst3`,
+copying the module verbatim and re-hashing it, so the shipped bytes are provably the
+compiled bytes.
+* **The version resource names the project, not the product.** JUCE fills
+`ProductName` and `FileDescription` from the *project* name
+(`juce_ResourceRc.cpp`), and this project is `SideChain` - Windows file properties
+and host plug-in information would show "SideChain" even though the VST3 class name
+is `PumpCurve`. The driver rewrites those two values in the generated
+`resources.rc` after the resave and before MSBuild, preserves the original as
+`resources.rc.pre-pumpcurve`, and records every before/after hash in
+`RUN-MANIFEST.json`. `stage_windows_vst3.py --inspect-module` fails when a legacy
+name survives in the version resource, and only reports it when it appears as a
+plain string (compiled-in source paths legitimately carry the project name).
+
 ## 1. Why the JUCE tree is pinned twice
 
 The validated macOS build compiles against a *locally patched* JUCE 6.1.3 tree
@@ -46,7 +71,7 @@ case-insensitive file system cannot represent faithfully).
 `.github/workflows/windows-vst3.yml` runs on `windows-2022` and:
 
 1. runs the local self-tests (`stage_windows_vst3.py --self-test`,
-   `build_windows_vst3.py --check`),
+   `build_windows_vst3.py --self-test`, `build_windows_vst3.py --check`),
 2. provisions the patched JUCE tree (verified against the manifest) and the stock
    tree that Projucer is built from,
 3. builds Projucer 6.1.3 with MSBuild,

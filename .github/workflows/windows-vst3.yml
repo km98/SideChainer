@@ -110,6 +110,7 @@ jobs:
           T="$(cygpath -u "$RUNNER_TEMP")"; mkdir -p "$T/logs"
           cd SideChain/Builds/Windows
           python tools/stage_windows_vst3.py --self-test 2>&1 | tee "$T/logs/stage_self_test.log"
+          python tools/build_windows_vst3.py --self-test 2>&1 | tee "$T/logs/rc_identity_self_test.log"
           python tools/build_windows_vst3.py --check 2>&1 | tee "$T/logs/build_check.log"
 
       # The project's module paths are relative to the .jucer file and expect the

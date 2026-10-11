@@ -457,9 +457,25 @@ def run_tests(work, evidence_root):
     if not evidence_root or not pathlib.Path(evidence_root).is_dir():
         note("no --evidence-root/PUMPCURVE_EVIDENCE_ROOT; the real candidate was not judged here")
         return
-    validation_log = None
-    for candidate in sorted(pathlib.Path(evidence_root).glob("**/validate_all-run*.log")):
-        validation_log = candidate
+    # Judge a *completed* validation run. The suite runs these tests as one of its
+    # own stages, so the log of the run happening right now has no verdict line yet;
+    # picking it (the previous rule took the newest name) made the gate fail against
+    # the very run it was meant to exercise. A log without a verdict is skipped, and
+    # among the completed ones the most recently modified wins.
+    completed = []
+    for candidate in pathlib.Path(evidence_root).glob("**/validate_all-run*.log"):
+        try:
+            text = candidate.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if "VALIDATION PASSED" in text or "VALIDATION FAILED" in text:
+            completed.append(candidate)
+    validation_log = max(completed, key=lambda p: p.stat().st_mtime) if completed else None
+    if completed:
+        print("  validation log judged: %s (%s)"
+              % (validation_log.name,
+                 "passed" if "VALIDATION PASSED" in validation_log.read_text(
+                     encoding="utf-8", errors="replace") else "failed"))
     real_notes = None
     for candidate in sorted(pathlib.Path(evidence_root).glob("**/RELEASE-NOTES-%s.md" % VERSION)):
         real_notes = candidate

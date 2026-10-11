@@ -1,0 +1,355 @@
+== JUCE 6.1.3 tree verification ==
+  root:            D:\a\SideChainer\HISE\JUCE
+  manifest:        JUCE-6.1.3-patched-modules.sha256 (1798 files)
+  files found:     1798
+  ignored:         juce_audio_devices/native/oboe/
+  every file byte-identical to the patched tree the builds were validated against
+
+JUCE TREE: PASS
+MSBuild version 17.14.60+43b635718 for .NET Framework
+Build started 10/11/2026 10:10:03 AM.
+
+     1>Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" on node 1 (default targets).
+     1>ValidateSolutionConfiguration:
+         Building solution configuration "Release|x64".
+     1>Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" (1) is building "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj" (3) on node 2 (default targets).
+     3>PrepareForBuild:
+         Creating directory "x64\Release\Shared Code\".
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+         Creating directory "x64\Release\Shared Code\SideChai.25FA5CC7.tlog\".
+       InitializeBuildStatus:
+         Creating "x64\Release\Shared Code\SideChai.25FA5CC7.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "x64\Release\Shared Code\SideChai.25FA5CC7.tlog\unsuccessfulbuild".
+       ClCompile:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\CL.exe /c /I..\..\..\..\HISE\JUCE\modules\juce_audio_processors\format_types\VST3_SDK /I..\..\JuceLibraryCode /I..\..\..\..\HISE\JUCE\modules /Zi /nologo /W4 /WX- /diagnostics:column /MP /Ox /GL /D _CRT_SECURE_NO_WARNINGS /D WIN32 /D _WINDOWS /D NDEBUG /D JUCER_VS2022_78A503E=1 /D JUCE_APP_VERSION=0.4.1 /D JUCE_APP_VERSION_HEX=0x401 /D JucePlugin_Build_VST=0 /D JucePlugin_Build_VST3=1 /D JucePlugin_Build_AU=0 /D JucePlugin_Build_AUv3=0 /D JucePlugin_Build_RTAS=0 /D JucePlugin_Build_AAX=0 /D JucePlugin_Build_Standalone=0 /D JucePlugin_Build_Unity=0 /D JUCE_SHARED_CODE=1 /D _LIB /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /std:c++17 /Fo"x64\Release\Shared Code\\" /Fd"x64\Release\Shared Code\\SideChain.pdb" /external:W4 /Gd /TP /FC /errorReport:queue ..\..\Source\PluginProcessor.cpp ..\..\Source\PluginEditor.cpp ..\..\Source\GraphComponent.cpp ..\..\Source\MusicProdAuth.cpp ..\..\Source\InfoPage.cpp ..\..\JuceLibraryCode\BinaryData.cpp ..\..\JuceLibraryCode\include_juce_audio_basics.cpp ..\..\JuceLibraryCode\include_juce_audio_devices.cpp ..\..\JuceLibraryCode\include_juce_audio_formats.cpp ..\..\JuceLibraryCode\include_juce_audio_plugin_client_utils.cpp ..\..\JuceLibraryCode\include_juce_audio_processors.cpp ..\..\JuceLibraryCode\include_juce_audio_utils.cpp ..\..\JuceLibraryCode\include_juce_core.cpp ..\..\JuceLibraryCode\include_juce_data_structures.cpp ..\..\JuceLibraryCode\include_juce_dsp.cpp ..\..\JuceLibraryCode\include_juce_events.cpp ..\..\JuceLibraryCode\include_juce_graphics.cpp ..\..\JuceLibraryCode\include_juce_gui_extra.cpp
+         PluginProcessor.cpp
+         PluginEditor.cpp
+         GraphComponent.cpp
+         MusicProdAuth.cpp
+         InfoPage.cpp
+         BinaryData.cpp
+         include_juce_audio_basics.cpp
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/PluginProcessor.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/PluginEditor.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/PluginEditor.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/PluginProcessor.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/GraphComponent.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../Source/GraphComponent.cpp')
+         
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(316,21): warning C4189: 'p0': local variable is initialized but not referenced [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(319,21): warning C4189: 'p3': local variable is initialized but not referenced [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\PluginProcessor.cpp(415,38): warning C4244: '=': conversion from 'juce::int64' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+     3>D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         include_juce_audio_devices.cpp
+         include_juce_audio_formats.cpp
+         include_juce_audio_plugin_client_utils.cpp
+         include_juce_audio_processors.cpp
+         include_juce_audio_utils.cpp
+         include_juce_core.cpp
+         include_juce_data_structures.cpp
+         include_juce_dsp.cpp
+         include_juce_events.cpp
+         include_juce_graphics.cpp
+         include_juce_gui_extra.cpp
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\CL.exe /c /I..\..\..\..\HISE\JUCE\modules\juce_audio_processors\format_types\VST3_SDK /I..\..\JuceLibraryCode /I..\..\..\..\HISE\JUCE\modules /Zi /nologo /W4 /WX- /diagnostics:column /MP /Ox /GL /D _CRT_SECURE_NO_WARNINGS /D WIN32 /D _WINDOWS /D NDEBUG /D JUCER_VS2022_78A503E=1 /D JUCE_APP_VERSION=0.4.1 /D JUCE_APP_VERSION_HEX=0x401 /D JucePlugin_Build_VST=0 /D JucePlugin_Build_VST3=1 /D JucePlugin_Build_AU=0 /D JucePlugin_Build_AUv3=0 /D JucePlugin_Build_RTAS=0 /D JucePlugin_Build_AAX=0 /D JucePlugin_Build_Standalone=0 /D JucePlugin_Build_Unity=0 /D JUCE_SHARED_CODE=1 /D _LIB /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /std:c++17 /Fo"x64\Release\Shared Code\\" /Fd"x64\Release\Shared Code\\SideChain.pdb" /external:W4 /Gd /TP /FC /errorReport:queue  /bigobj ..\..\JuceLibraryCode\include_juce_gui_basics.cpp
+         include_juce_gui_basics.cpp
+     3>D:\a\SideChainer\HISE\JUCE\modules\juce_gui_basics\lookandfeel\juce_LookAndFeel_V3.cpp(336,55): warning C4100: 'backgroundColour': unreferenced parameter [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         (compiling source file '../../JuceLibraryCode/include_juce_gui_basics.cpp')
+         
+       Lib:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\Lib.exe /OUT:"D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\Shared Code\SideChain.lib" /NOLOGO /MACHINE:X64 /LTCG "x64\Release\Shared Code\\PluginProcessor.obj"
+         "x64\Release\Shared Code\\PluginEditor.obj"
+         "x64\Release\Shared Code\\GraphComponent.obj"
+         "x64\Release\Shared Code\\MusicProdAuth.obj"
+         "x64\Release\Shared Code\\InfoPage.obj"
+         "x64\Release\Shared Code\\BinaryData.obj"
+         "x64\Release\Shared Code\\include_juce_audio_basics.obj"
+         "x64\Release\Shared Code\\include_juce_audio_devices.obj"
+         "x64\Release\Shared Code\\include_juce_audio_formats.obj"
+         "x64\Release\Shared Code\\include_juce_audio_plugin_client_utils.obj"
+         "x64\Release\Shared Code\\include_juce_audio_processors.obj"
+         "x64\Release\Shared Code\\include_juce_audio_utils.obj"
+         "x64\Release\Shared Code\\include_juce_core.obj"
+         "x64\Release\Shared Code\\include_juce_data_structures.obj"
+         "x64\Release\Shared Code\\include_juce_dsp.obj"
+         "x64\Release\Shared Code\\include_juce_events.obj"
+         "x64\Release\Shared Code\\include_juce_graphics.obj"
+         "x64\Release\Shared Code\\include_juce_gui_basics.obj"
+         "x64\Release\Shared Code\\include_juce_gui_extra.obj"
+         SideChain_SharedCode.vcxproj -> D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\Shared Code\SideChain.lib
+       FinalizeBuildStatus:
+         Deleting file "x64\Release\Shared Code\SideChai.25FA5CC7.tlog\unsuccessfulbuild".
+         Touching "x64\Release\Shared Code\SideChai.25FA5CC7.tlog\SideChain_SharedCode.lastbuildstate".
+     3>Done Building Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj" (default targets).
+     1>Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" (1) is building "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_VST3.vcxproj.metaproj" (2) on node 1 (default targets).
+     2>Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_VST3.vcxproj.metaproj" (2) is building "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_VST3.vcxproj" (4) on node 1 (default targets).
+     4>PrepareForBuild:
+         Creating directory "x64\Release\VST3\".
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+         Creating directory "x64\Release\VST3\SideChain_VST3.tlog\".
+       InitializeBuildStatus:
+         Creating "x64\Release\VST3\SideChain_VST3.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "x64\Release\VST3\SideChain_VST3.tlog\unsuccessfulbuild".
+       ClCompile:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\CL.exe /c /I..\..\..\..\HISE\JUCE\modules\juce_audio_processors\format_types\VST3_SDK /I..\..\JuceLibraryCode /I..\..\..\..\HISE\JUCE\modules /Zi /nologo /W4 /WX- /diagnostics:column /MP /Ox /GL /D _CRT_SECURE_NO_WARNINGS /D WIN32 /D _WINDOWS /D NDEBUG /D JUCER_VS2022_78A503E=1 /D JUCE_APP_VERSION=0.4.1 /D JUCE_APP_VERSION_HEX=0x401 /D JucePlugin_Build_VST=0 /D JucePlugin_Build_VST3=1 /D JucePlugin_Build_AU=0 /D JucePlugin_Build_AUv3=0 /D JucePlugin_Build_RTAS=0 /D JucePlugin_Build_AAX=0 /D JucePlugin_Build_Standalone=0 /D JucePlugin_Build_Unity=0 /D _WINDLL /Gm- /EHsc /MD /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /std:c++17 /Fo"x64\Release\VST3\\" /Fd"x64\Release\VST3\\SideChain.pdb" /external:W4 /Gd /TP /FC /errorReport:queue ..\..\JuceLibraryCode\include_juce_audio_plugin_client_VST3.cpp
+         include_juce_audio_plugin_client_VST3.cpp
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\rc.exe /D NDEBUG /l"0x0409" /nologo /fo"x64\Release\VST3\resources.res" .\resources.rc 
+       Link:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\link.exe /ERRORREPORT:QUEUE /OUT:"D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\\SideChain.vst3" /NOLOGO SideChain.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"x64\Release\VST3\\SideChain.pdb" /SUBSYSTEM:WINDOWS /LARGEADDRESSAWARE /OPT:REF /OPT:ICF /LTCG /LTCGOUT:"x64\Release\VST3\SideChain.iobj" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.lib" /MACHINE:X64 /DLL x64\Release\VST3\resources.res
+         x64\Release\VST3\\include_juce_audio_plugin_client_VST3.obj
+            Creating library D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.lib and object D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.exp
+         Generating code
+         Finished generating code
+         SideChain_VST3.vcxproj -> D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.vst3
+       FinalizeBuildStatus:
+         Deleting file "x64\Release\VST3\SideChain_VST3.tlog\unsuccessfulbuild".
+         Touching "x64\Release\VST3\SideChain_VST3.tlog\SideChain_VST3.lastbuildstate".
+     4>Done Building Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_VST3.vcxproj" (default targets).
+     2>Done Building Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_VST3.vcxproj.metaproj" (default targets).
+     1>Done Building Project "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" (default targets).
+
+Build succeeded.
+
+       "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" (default target) (1) ->
+       "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj" (default target) (3) ->
+       (ClCompile target) -> 
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244: 'initializing': conversion from 'Type' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,54): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244: 'initializing': conversion from 'Type' to 'const double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:             Type=__int64 [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\DuckEngine.h(224,41): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(316,21): warning C4189: 'p0': local variable is initialized but not referenced [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(319,21): warning C4189: 'p3': local variable is initialized but not referenced [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,65): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(452,43): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,69): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(454,42): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,74): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(456,51): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\PluginProcessor.cpp(415,38): warning C4244: '=': conversion from 'juce::int64' to 'double', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(626,44): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(686,62): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(693,49): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(739,53): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(769,38): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+         D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244: 'argument': conversion from 'ValueType' to 'int', possible loss of data [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         with [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         [ [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:             ValueType=float [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+       D:\a\SideChainer\SideChainer\SideChain\Source\GraphComponent.cpp(770,38): warning C4244:         ] [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+
+
+       "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln" (default target) (1) ->
+       "D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj" (default target) (3) ->
+         D:\a\SideChainer\HISE\JUCE\modules\juce_gui_basics\lookandfeel\juce_LookAndFeel_V3.cpp(336,55): warning C4100: 'backgroundColour': unreferenced parameter [D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain_SharedCode.vcxproj]
+
+    22 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:42.24
+  inspecting the built module before staging:
+  module:        D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.vst3
+  size:          3410432 bytes
+  sha256:        ba289c5f92f92d6847edbe4a006c515db8ced3ab3ff3e704410c7d048877c6e2
+  architecture:  x64 (PE machine 0x8664)
+  class name 'PumpCurve' present:        True
+  product name 'PumpCurve' in version resource: True
+  version '0.4.1' in version resource:       True
+  no legacy product name in the version resource
+  note: legacy name(s) appear as plain strings (source paths/target names): SideChain
+STAGED: D:\a\_temp\artifacts\PumpCurve.vst3
+  module: Contents/x86_64-win/PumpCurve.vst3
+  module sha256: ba289c5f92f92d6847edbe4a006c515db8ced3ab3ff3e704410c7d048877c6e2
+  1 file(s); the module is byte-identical to the built DLL
+  manifest: D:\a\_temp\artifacts/MANIFEST-staged.json
+PACKAGED: D:\a\_temp\artifacts\PumpCurve-0.4.1-Windows-x64.zip (1514573 bytes)
+  sha256: 9ac4447e945a2f4884be7a861d8166ee49727fc545a4a9a2ab96de958e69cd2b
+  $ C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\juce\verify_juce_tree.py --verify --root D:\a\SideChainer\HISE\JUCE
+  $ D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe --resave D:\a\SideChainer\SideChainer\SideChain\SideChain.jucer
+    [out] Re-saving file: D:\a\SideChainer\SideChainer\SideChain\SideChain.jucer
+    [out] Finished saving: Xcode (macOS)
+    [out] Finished saving: Visual Studio 2022
+  .jucer module path:  D:\a\SideChainer\HISE\JUCE\modules
+  patched marker:      juce_core/logging/juce_AudioThreadGuard.h
+  generated project:   D:\a\SideChainer\HISE\JUCE\modules
+  version resource: resources.rc -> ProductName/FileDescription = PumpCurve (2 value(s))
+  msbuild: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+  $ C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\SideChain.sln /m /p:Configuration=Release /p:Platform=x64
+  built artifact: D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.vst3 (flat module)
+  built module sha256: ba289c5f92f92d6847edbe4a006c515db8ced3ab3ff3e704410c7d048877c6e2
+  $ C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\tools\stage_windows_vst3.py --stage D:\a\SideChainer\SideChainer\SideChain\Builds\VisualStudio2022\x64\Release\VST3\SideChain.vst3 --out-dir D:\a\_temp\artifacts --version 0.4.1
+  $ C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\tools\stage_windows_vst3.py --package D:\a\_temp\artifacts\PumpCurve.vst3 --out-dir D:\a\_temp\artifacts --version 0.4.1
+  identity proven: staged module == built module (ba289c5f92f92d6847edbe4a006c515db8ced3ab3ff3e704410c7d048877c6e2)
+
+BUILD OK -> D:\a\_temp\artifacts\PumpCurve-0.4.1-Windows-x64.zip
+  MANIFEST-staged.json                                658  47273b7688ecc02ae4970195d53ae558a6768288b033e82d0aa270f8d8eee5f8
+  PumpCurve-0.4.1-Windows-x64.zip                 1514573  9ac4447e945a2f4884be7a861d8166ee49727fc545a4a9a2ab96de958e69cd2b
+  SHA256SUMS                                           99  f07ab81b111a1344df8b5fe769545fb5e85bd725eef41d138f87b011fcccff8a
+  SideChain.jucer.resaved                            9191  f54359fb88e36ab259418d00f3c3a9f8461c19af7604ea1f4ff33ccb04159d9c
+Next: compile the installer (installer/build_installer.cmd), run the
+install/uninstall test (installer/test_install_uninstall.ps1), then test the
+plug-in in FL Studio / Ableton Live and record the results.

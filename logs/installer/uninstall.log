@@ -1,0 +1,31 @@
+﻿2026-10-11 10:11:01.883   Log opened. (Time zone: UTC+00:00)
+2026-10-11 10:11:01.883   Setup version: Inno Setup version 6.7.1
+2026-10-11 10:11:01.883   Original Uninstall EXE: C:\Program Files\Common Files\PumpCurve\unins000.exe
+2026-10-11 10:11:01.883   Uninstall DAT: C:\Program Files\Common Files\PumpCurve\unins000.dat
+2026-10-11 10:11:01.883   Current Uninstall EXE: C:\Users\RUNNER~1\AppData\Local\Temp\is-BIVW2JNXOI-uninstall.tmp\_unins.tmp
+2026-10-11 10:11:01.883   Uninstall command line: /SECONDPHASE="C:\Program Files\Common Files\PumpCurve\unins000.exe" /FIRSTPHASEWND=$601E0 /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=D:\a\_temp\logs\installer\uninstall.log
+2026-10-11 10:11:01.883   Windows version: 10.0.20348
+2026-10-11 10:11:01.883   Windows architecture: x64 (64-bit)
+2026-10-11 10:11:01.883   Machine types supported by system: x86 x64
+2026-10-11 10:11:01.883   User privileges: Administrative
+2026-10-11 10:11:01.883   Administrative install mode: Yes
+2026-10-11 10:11:01.883   Install mode root key: HKEY_LOCAL_MACHINE
+2026-10-11 10:11:01.883   RedirectionGuard status for current process: Enabled in enforcing mode
+2026-10-11 10:11:01.883   Cleaning up any residual temporary files from previous Uninstall runs.
+2026-10-11 10:11:01.883   Cleanup finished (1 directories found, 1 directories checked, 0 files deleted).
+2026-10-11 10:11:01.883   Created protected temporary directory: C:\Users\RUNNER~1\AppData\Local\Temp\is-3Q96ULGU1M.tmp
+2026-10-11 10:11:01.898   Starting the uninstallation process.
+2026-10-11 10:11:01.898   Deleting registry key: HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8A1C9B4E-3D2F-4C77-9E31-1F5B7C0A2D64}_is1
+2026-10-11 10:11:01.898   Deleting file: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3
+2026-10-11 10:11:01.898   Deleting directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win
+2026-10-11 10:11:01.898   Deleting directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents
+2026-10-11 10:11:01.898   Deleting directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3
+2026-10-11 10:11:01.898   Deleting directory: C:\Program Files\Common Files\PumpCurve
+2026-10-11 10:11:01.898   Failed to delete directory (145). Will retry later.
+2026-10-11 10:11:01.898   Deleting Uninstall data files.
+2026-10-11 10:11:01.898   Creating "_unins-done.tmp" file.
+2026-10-11 10:11:02.414   Deleting directory: C:\Program Files\Common Files\PumpCurve
+2026-10-11 10:11:02.414   Uninstallation process succeeded.
+2026-10-11 10:11:02.414   Removed all? Yes
+2026-10-11 10:11:02.414   Need to restart Windows? No
+2026-10-11 10:11:02.414   Log closed.

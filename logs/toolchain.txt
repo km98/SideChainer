@@ -1,0 +1,10 @@
+runner:   Windows X64 (GitHub Actions 1000000045)
+python:   Python 3.11.9
+git head: 84c925b9b6403936567c6f036bb14c013970859e
+git longpaths: true
+msbuild:  C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+run:      windows-vst3 #17
+temp:     /d/a/_temp
+files in the working tree: 2471
+MSBuild version 17.14.60+43b635718 for .NET Framework
+17.14.60.43110

@@ -1,0 +1,2 @@
+signature state (NotSigned is expected: no Authenticode certificate in this pipeline)
+Setup.exe: NotSigned - The file D:\a\_temp\artifacts\PumpCurve-0.4.1-Windows-x64-Setup.exe is not digitally signed. You cannot run this script on the current system. For more information about running scripts and setting execution policy, see about_Execution_Policies at https://go.microsoft.com/fwlink/?LinkID=135170

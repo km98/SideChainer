@@ -174,11 +174,21 @@ def require_windows(mode):
     return 0
 
 
-def find_msbuild():
+def find_msbuild(explicit=None):
+    """MSBuild to use: an explicit path wins, then PATH.
+
+    A GitHub runner does not necessarily have MSBuild on PATH in a bash step, so
+    the workflow locates it with vswhere and passes the path in.
+    """
+    if explicit:
+        path = pathlib.Path(explicit)
+        if path.is_file():
+            return str(path)
+        print("  warning: --msbuild %s is not a file; falling back to PATH" % explicit)
     return shutil.which("msbuild") or shutil.which("MSBuild.exe")
 
 
-def build_projucer(juce_root):
+def build_projucer(juce_root, msbuild_arg=None):
     """Compile Projucer 6.1.3 from the *stock* tree (it is a tool, not the product).
 
     The plug-in itself is compiled against the patched tree; Projucer only has to
@@ -192,9 +202,11 @@ def build_projucer(juce_root):
     sln = juce_root / "extras" / "Projucer" / "Builds" / "VisualStudio2022" / "Projucer.sln"
     if not sln.is_file():
         return fail("Projucer solution not found: %s" % sln)
-    msbuild = find_msbuild()
+    msbuild = find_msbuild(msbuild_arg)
     if not msbuild:
-        return fail("msbuild not on PATH (run from a Developer Command Prompt)")
+        return fail("msbuild not on PATH (run from a Developer Command Prompt, "
+                    "or pass --msbuild <path to MSBuild.exe>)")
+    print("  msbuild: %s" % msbuild)
     rc = run([msbuild, sln, "/m", "/p:Configuration=Release", "/p:Platform=x64"])
     if rc.returncode != 0:
         return fail("msbuild failed for Projucer")
@@ -208,7 +220,7 @@ def build_projucer(juce_root):
     return 0
 
 
-def build(juce_root, projucer, out_dir):
+def build(juce_root, projucer, out_dir, msbuild_arg=None):
     rc = require_windows("--build")
     if rc:
         return rc
@@ -240,9 +252,11 @@ def build(juce_root, projucer, out_dir):
         return fail("expected solution not generated: %s" % sln)
 
     # 2. Build the VST3 target, x64 Release.
-    msbuild = find_msbuild()
+    msbuild = find_msbuild(msbuild_arg)
     if not msbuild:
-        return fail("msbuild not on PATH (run from a Developer Command Prompt)")
+        return fail("msbuild not on PATH (run from a Developer Command Prompt, "
+                    "or pass --msbuild <path to MSBuild.exe>)")
+    print("  msbuild: %s" % msbuild)
     rc = run([msbuild, sln, "/m", "/p:Configuration=Release", "/p:Platform=x64"])
     if rc.returncode != 0:
         return fail("msbuild failed")
@@ -312,6 +326,7 @@ def main():
                     help="compile Projucer 6.1.3 from a stock tree (Windows)")
     ap.add_argument("--juce-root", help="JUCE tree to build against")
     ap.add_argument("--projucer", help="path to Projucer.exe")
+    ap.add_argument("--msbuild", help="path to MSBuild.exe (default: from PATH)")
     ap.add_argument("--out-dir", default=str(WINDEV / "artifacts"),
                     help="artifact directory (default: Builds/Windows/artifacts)")
     args = ap.parse_args()
@@ -321,14 +336,14 @@ def main():
     if args.build_projucer:
         if not args.juce_root:
             ap.error("--build-projucer needs --juce-root")
-        return build_projucer(args.juce_root)
+        return build_projucer(args.juce_root, args.msbuild)
     if args.build:
         root = args.juce_root or os.environ.get("SIDECHAIN_JUCE_ROOT")
         if not root:
             ap.error("--build needs --juce-root (or SIDECHAIN_JUCE_ROOT)")
         if not args.projucer:
             ap.error("--build needs --projucer")
-        return build(root, args.projucer, args.out_dir)
+        return build(root, args.projucer, args.out_dir, args.msbuild)
     ap.print_help()
     return 2
 

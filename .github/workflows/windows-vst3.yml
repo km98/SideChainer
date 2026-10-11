@@ -67,9 +67,20 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+      # vswhere is authoritative about where Visual Studio lives on the image;
+      # setup-msbuild does not reliably put MSBuild on PATH for bash steps.
+      - name: Locate MSBuild
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) { Write-Host "vswhere not found"; exit 1 }
+          $msbuild = & $vswhere -latest -products * -requires Microsoft.Component.MSBuild `
+                       -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) { Write-Host "MSBuild.exe not found by vswhere"; exit 1 }
+          Write-Host "MSBuild: $msbuild"
+          "MSBUILD_PATH=$msbuild" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      # Informational only: it must never be the reason a run stops.
       - name: Toolchain report
         shell: bash
         run: |
@@ -81,12 +92,13 @@ jobs:
             echo "python:   $(python --version 2>&1)"
             echo "git head: $(git rev-parse HEAD)"
             echo "git longpaths: $(git config --get core.longpaths || echo unset)"
+            echo "msbuild:  ${MSBUILD_PATH:-<not located>}"
             echo "run:      $GITHUB_WORKFLOW #$GITHUB_RUN_NUMBER"
             echo "temp:     $T"
-            echo "checked out:"
-            git ls-files | head -20
+            echo "files in the working tree: $(git ls-files | wc -l)"
           } | tee "$T/logs/toolchain.txt"
-          msbuild -version 2>&1 | tail -3 | tee -a "$T/logs/toolchain.txt"
+          "${MSBUILD_PATH:-msbuild}" -version 2>&1 | tail -3 | tee -a "$T/logs/toolchain.txt" || true
+          exit 0
 
       - name: Validate the build inputs (self-tests)
         id: validate
@@ -115,7 +127,10 @@ jobs:
           set -uo pipefail
           T="$(cygpath -u "$RUNNER_TEMP")"
           cd SideChain/Builds/Windows
-          python tools/build_windows_vst3.py --build-projucer --juce-root "$T/juce-stock" 2>&1 | tee "$T/logs/projucer.log"
+          MSB=()
+          [ -n "${MSBUILD_PATH:-}" ] && MSB=(--msbuild "$MSBUILD_PATH")
+          python tools/build_windows_vst3.py --build-projucer --juce-root "$T/juce-stock" \
+              "${MSB[@]}" 2>&1 | tee "$T/logs/projucer.log"
 
       - name: Build the PumpCurve VST3 (x64, patched JUCE)
         id: build
@@ -127,9 +142,11 @@ jobs:
           PJ="$(find "$T/juce-stock" -name Projucer.exe -type f | sort | tail -1)"
           echo "Projucer: $PJ"
           test -n "$PJ"
+          MSB=()
+          [ -n "${MSBUILD_PATH:-}" ] && MSB=(--msbuild "$MSBUILD_PATH")
           python tools/build_windows_vst3.py --build \
               --juce-root "$T/juce-patched" --projucer "$PJ" --out-dir "$T/artifacts" \
-              2>&1 | tee "$T/logs/build.log"
+              "${MSB[@]}" 2>&1 | tee "$T/logs/build.log"
 
       - name: Install Inno Setup 6
         id: inno

@@ -1,0 +1,16 @@
+== JUCE 6.1.3 tree verification ==
+  root:            D:\a\SideChainer\HISE\JUCE
+  manifest:        JUCE-6.1.3-patched-modules.sha256 (1798 files)
+  files found:     1798
+  ignored:         juce_audio_devices/native/oboe/
+  every file byte-identical to the patched tree the builds were validated against
+
+JUCE TREE: PASS
+  $ C:\hostedtoolcache\windows\Python\3.11.9\x64\python.exe D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\juce\verify_juce_tree.py --verify --root D:\a\SideChainer\HISE\JUCE
+  $ D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe --resave D:\a\SideChainer\SideChainer\SideChain\SideChain.jucer
+    [out] Re-saving file: D:\a\SideChainer\SideChainer\SideChain\SideChain.jucer
+    [out] Finished saving: Xcode (macOS)
+    [out] Finished saving: Visual Studio 2022
+  .jucer module path:  D:\a\SideChainer\HISE\JUCE\modules
+  patched marker:      juce_core/logging/juce_AudioThreadGuard.h
+FAIL: the generated project also references JUCE modules without the patched files: ['D:\\a\\SideChainer\\HISE\\JUCE\\modules\\juce_core']

@@ -3,12 +3,18 @@
 
 Why this exists
 ---------------
-The JUCE build emits a Windows bundle called ``SideChain.vst3`` (that is the
-MSBuild target name). Hosts that derive the displayed name from the *file* name -
-FL Studio's plug-in database does - would then list the product as "SideChain".
-The shipped bundle must therefore be ``PumpCurve.vst3``, with the module binary
-inside it also called ``PumpCurve.vst3`` (the VST3 convention is
-``<Name>.vst3/Contents/x86_64-win/<Name>.vst3``).
+The JUCE 6.1.3 Visual Studio exporter emits a *flat* module called
+``SideChain.vst3`` - on Windows that is a PE DLL carrying the .vst3 extension,
+not a bundle (only the Xcode exporter assembles ``Contents/``). Hosts that derive
+the displayed name from the file name - FL Studio's plug-in database does - would
+then list the product as "SideChain", and a bare DLL is not the bundle layout the
+VST3 specification describes for distribution.
+
+This tool accepts either shape of build output and always produces the canonical
+bundle ``PumpCurve.vst3/Contents/x86_64-win/PumpCurve.vst3``:
+
+  * a flat ``SideChain.vst3`` module -> wrapped into that layout, and
+  * an already bundled ``SideChain.vst3`` directory -> renamed.
 
 Renaming is safe: it changes no byte of the module and no identifier inside it.
 This tool *proves* that - it hashes every file before and after staging and
@@ -18,7 +24,7 @@ SideChainer binary can never be staged as PumpCurve.
 
 Usage
 -----
-  python stage_windows_vst3.py --stage   <built SideChain.vst3> --out-dir <dir>
+  python stage_windows_vst3.py --stage   <built SideChain.vst3, file or bundle> --out-dir <dir>
   python stage_windows_vst3.py --package <staged PumpCurve.vst3> --out-dir <dir>
   python stage_windows_vst3.py --inspect-module <path to .vst3 module binary>
   python stage_windows_vst3.py --self-test          # runs anywhere, builds fixtures
@@ -153,10 +159,100 @@ def inspect_module(module_path, version=None, expected_product=PRODUCT):
 
 # ---------------------------------------------------------------------- staging
 
-def stage(built_bundle, out_dir, version=None):
+def stage_flat_module(module_file, target, version=None):
+    """Wrap a flat Windows module (a PE DLL named .vst3) into the VST3 layout.
+
+    The Visual Studio exporter links the plug-in to a single DLL; on Windows that
+    file *is* the module and there is no Contents/ hierarchy. The specified bundle
+    layout is rebuilt around it here:
+
+        <target>/Contents/x86_64-win/<PumpCurve>.vst3
+
+    The module bytes are copied verbatim and compared again afterwards, so the
+    identity that is inspected first is provably the identity that ships.
+    """
+    module_file = pathlib.Path(module_file)
+    print("  inspecting the built module before staging:")
+    if inspect_module(module_file, version) != 0:
+        return fail("built module failed identity/architecture inspection; refusing to stage")
+    if module_file.name not in LEGACY_NAMES and module_file.name != ("%s.vst3" % PRODUCT):
+        print("  note: build output is called %s; it is staged under the product name"
+              % module_file.name)
+
+    if target.exists():
+        return fail("refusing to overwrite existing staged bundle: %s" % target)
+
+    module_rel = "Contents/%s/%s.vst3" % (WINDOWS_ARCH_DIR, PRODUCT)
+    staged_module = target / module_rel
+    digest_before = sha256(module_file)
+    staged_module.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(module_file, staged_module)
+    if sha256(staged_module) != digest_before:
+        return fail("staged module does not hash to the built module")
+
+    extras = {}
+    # A moduleinfo.json produced next to the DLL travels into Contents/Resources -
+    # but never one that still names the previous product.
+    sidecar = module_file.parent / "moduleinfo.json"
+    if sidecar.is_file():
+        text = sidecar.read_text(encoding="utf-8", errors="replace")
+        stale = [name for name in LEGACY_PRODUCT_NAMES if name in text]
+        if stale:
+            extras["moduleinfo.json"] = "skipped: still names %s" % ", ".join(stale)
+            print("  WARNING: moduleinfo.json still names %s; not shipped" % ", ".join(stale))
+        else:
+            (target / "Contents" / "Resources").mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(sidecar, target / "Contents" / "Resources" / "moduleinfo.json")
+            extras["moduleinfo.json"] = "copied into Contents/Resources"
+
+    files = tree_hashes(target)
+    manifest = {
+        "product": PRODUCT,
+        "version": version,
+        "platform": "windows-x64",
+        "format": "VST3",
+        "staged_bundle": target.name,
+        "renamed_from": module_file.name,
+        "layout": "flat Windows module wrapped into the VST3 bundle layout",
+        "module": module_rel,
+        "arch_dir": WINDOWS_ARCH_DIR,
+        "module_sha256": sha256(staged_module),
+        "files": files,
+        "extras": extras,
+        "note": "module byte-identical to the built DLL; only the layout around it "
+                "was created",
+    }
+    (target.parent / "MANIFEST-staged.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+    print("STAGED: %s" % target)
+    print("  module: %s" % module_rel)
+    print("  module sha256: %s" % manifest["module_sha256"])
+    print("  %d file(s); the module is byte-identical to the built DLL" % len(files))
+    print("  manifest: %s/MANIFEST-staged.json" % target.parent)
+    return 0
+
+
+def stage(built, out_dir, version=None):
+    """Stage the build output under the customer name, proving no byte changed.
+
+    Accepts either shape the build can produce: the flat ``SideChain.vst3`` module
+    that the Visual Studio exporter links, or an already bundled one.
+    """
+    built = pathlib.Path(built)
+    out_dir = pathlib.Path(out_dir)
+    target = out_dir / ("%s.vst3" % PRODUCT)
+    if built.is_file():
+        return stage_flat_module(built, target, version)
+    if not built.is_dir():
+        return fail("built artifact is neither a file nor a directory: %s" % built)
+    return stage_bundle(built, target, version)
+
+
+def stage_bundle(built_bundle, target, version=None):
     """Rename a built bundle to the customer name, proving no byte changed."""
     built_bundle = pathlib.Path(built_bundle)
-    out_dir = pathlib.Path(out_dir)
+    out_dir = target.parent
     if not built_bundle.is_dir():
         return fail("built bundle is not a directory: %s" % built_bundle)
 
@@ -177,7 +273,6 @@ def stage(built_bundle, out_dir, version=None):
     if inspect_module(module, version) != 0:
         return fail("built module failed identity/architecture inspection; refusing to stage")
 
-    target = out_dir / ("%s.vst3" % PRODUCT)
     if target.exists():
         return fail("refusing to overwrite existing staged bundle: %s" % target)
 
@@ -411,6 +506,51 @@ def self_test(version):
             return fail("self-test: SHA256SUMS does not carry the archive hash")
         print("  ok: SHA256SUMS carries the archive hash")
         print("  ok: packaging is deterministic (fixed archive timestamps)")
+
+        # The Visual Studio exporter emits a flat module, not a bundle: staging it
+        # must build the canonical layout around it, byte for byte.
+        flat_dir = tmp / "vs-build" / "VST3"
+        flat_dir.mkdir(parents=True)
+        flat_module = flat_dir / "SideChain.vst3"
+        flat_module.write_bytes(synthetic_module(version=version))
+        rc = stage(flat_module, tmp / "flat-artifacts", version)
+        if rc != 0:
+            return rc
+        flat_staged = tmp / "flat-artifacts" / ("%s.vst3" % PRODUCT)
+        flat_inner = flat_staged / "Contents" / WINDOWS_ARCH_DIR / ("%s.vst3" % PRODUCT)
+        if not flat_inner.is_file():
+            return fail("self-test: flat module was not wrapped into the bundle layout")
+        if sha256(flat_inner) != sha256(flat_module):
+            return fail("self-test: the wrapped module differs from the built DLL")
+        if (flat_staged / "Contents" / WINDOWS_ARCH_DIR / "SideChain.vst3").exists():
+            return fail("self-test: the wrapped bundle kept the legacy module name")
+        flat_manifest = json.loads((flat_staged.parent / "MANIFEST-staged.json")
+                                   .read_text(encoding="utf-8"))
+        if flat_manifest.get("module_sha256") != sha256(flat_module):
+            return fail("self-test: manifest does not record the built module hash")
+        if sorted(flat_manifest.get("files", {}).values()) != [sha256(flat_module)]:
+            return fail("self-test: manifest file list does not match the staged bundle")
+        print("  ok: a flat VS build output is wrapped into %s.vst3, bytes identical" % PRODUCT)
+        rc = package(flat_staged, tmp / "flat-artifacts", version)
+        if rc != 0:
+            return rc
+        rc = verify_zip(tmp / "flat-artifacts" / ("%s-%s-Windows-x64.zip" % (PRODUCT, version)),
+                        version)
+        if rc != 0:
+            return rc
+
+        # A flat module from the previous product must still be refused.
+        stale_flat = tmp / "stale-flat" / "SideChain.vst3"
+        stale_flat.parent.mkdir(parents=True)
+        stale_flat.write_bytes(synthetic_module(legacy="SideChainer"))
+        captured = io.StringIO()
+        with contextlib.redirect_stdout(captured):
+            rc = stage(stale_flat, tmp / "stale-flat-artifacts", version)
+        if rc == 0:
+            return fail("self-test: a legacy flat module was staged as %s" % PRODUCT)
+        if (tmp / "stale-flat-artifacts" / ("%s.vst3" % PRODUCT)).exists():
+            return fail("self-test: a rejected flat module left a partial bundle behind")
+        print("  ok: a legacy flat module is refused, nothing is written")
 
     print("SELF-TEST: PASS")
     return 0

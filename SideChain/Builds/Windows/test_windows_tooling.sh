@@ -181,6 +181,27 @@ check $? "install test asserts a foreign plug-in survives install and uninstall"
 
 # ---------------------------------------------------------------------------
 echo
+echo "-- 5b. staging handles what the Visual Studio exporter actually emits"
+# ---------------------------------------------------------------------------
+# JUCE 6.1.3's MSVC exporter links a flat PE DLL called SideChain.vst3; unlike the
+# Xcode exporter it assembles no Contents/ hierarchy. Staging must wrap that module
+# into the bundle layout instead of waiting for a bundle that never appears - the
+# first Windows CI run failed exactly there.
+grep -q 'def stage_flat_module' "$TOOLS/stage_windows_vst3.py"
+check $? "staging wraps a flat Windows module into the VST3 bundle layout"
+grep -q 'flat Windows module wrapped into the VST3 bundle layout' "$TOOLS/stage_windows_vst3.py"
+check $? "the wrapped layout is recorded in the staging manifest"
+grep -q 'if built.is_file():' "$TOOLS/stage_windows_vst3.py"
+check $? "staging accepts a file as well as a bundle directory"
+grep -q 'def locate_built_artifact' "$TOOLS/build_windows_vst3.py"
+check $? "the build driver locates the flat exporter output too"
+grep -q 'built_module_sha256' "$TOOLS/build_windows_vst3.py"
+check $? "the driver proves the staged module is the built module"
+python3 "$TOOLS/stage_windows_vst3.py" --self-test >/dev/null 2>&1
+check $? "staging self-test passes, flat-module cases included"
+
+# ---------------------------------------------------------------------------
+echo
 echo "-- 6. the CI workflow still builds, installs and tests the product"
 # ---------------------------------------------------------------------------
 if [ ! -f "$WORKFLOW" ]; then

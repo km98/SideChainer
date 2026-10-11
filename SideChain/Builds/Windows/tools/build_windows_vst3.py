@@ -18,8 +18,10 @@ What --build does, in order
     manifest (never builds against drifted JUCE),
  2. exports the Visual Studio 2022 solution with Projucer 6.1.3,
  3. builds the VST3 target x64 Release with MSBuild,
- 4. locates the built bundle, inspects its module (x64 PE, product identity),
- 5. stages it as PumpCurve.vst3 (byte-identical, renamed) and packages a ZIP,
+ 4. locates the built module (the Visual Studio exporter links a flat
+    SideChain.vst3 DLL; a bundled layout is accepted as well if one appears),
+ 5. stages it as PumpCurve.vst3 (byte-identical module, canonical bundle layout)
+    and packages a deterministic ZIP,
  6. writes RUN-MANIFEST.json with every artifact hash.
 
 Prerequisites on Windows: Visual Studio 2022 with "Desktop development with C++"
@@ -330,6 +332,35 @@ def build_projucer(juce_root, msbuild_arg=None):
     return 0
 
 
+def locate_built_artifact(builds):
+    """Find what MSBuild produced under the project's Builds directory.
+
+    JUCE 6.1.3's Visual Studio exporter links a flat ``SideChain.vst3`` (a PE DLL
+    named with the .vst3 extension) into .../Builds/VisualStudio2022/build/x64/
+    Release/VST3/. A bundle directory is preferred when one exists, then the
+    exporter output, then anything named .vst3 that is not inside a bundle.
+    """
+    builds = pathlib.Path(builds)
+
+    def rank(path):
+        if path.is_dir():
+            kind = 0                      # a real bundle
+        elif path.parent.name == "VST3":
+            kind = 1                      # the exporter's flat output directory
+        elif "Contents" in path.parts:
+            kind = 3                      # module inside a bundle: least specific
+        else:
+            kind = 2
+        return (kind, -path.stat().st_mtime)
+
+    for pattern in ("SideChain.vst3", "*.vst3"):
+        cands = [p for p in builds.rglob(pattern) if p.is_dir() or p.is_file()]
+        cands = [p for p in cands if not any(part.endswith(".build") for part in p.parts)]
+        if cands:
+            return sorted(cands, key=rank)[0]
+    return None
+
+
 def build(juce_root, projucer, out_dir, msbuild_arg=None):
     rc = require_windows("--build")
     if rc:
@@ -377,12 +408,22 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
     if rc.returncode != 0:
         return fail("msbuild failed")
 
-    # 3. Locate the built bundle and prove it really is this product.
-    cands = [p for p in (PROJECT / "Builds").rglob("SideChain.vst3") if p.is_dir()]
-    if not cands:
-        return fail("no SideChain.vst3 produced")
-    built = max(cands, key=lambda p: p.stat().st_mtime)
-    print("  built bundle: %s" % built)
+    # 3. Locate the built module and prove it really is this product.
+    #    The Visual Studio exporter emits a flat SideChain.vst3 DLL; a bundle (as
+    #    produced by JUCE's CMake or the Xcode exporter) is handled as well.
+    built = locate_built_artifact(PROJECT / "Builds")
+    if built is None:
+        return fail("no VST3 build output produced under %s" % (PROJECT / "Builds"))
+    print("  built artifact: %s (%s)"
+          % (built, "bundle" if built.is_dir() else "flat module"))
+    built_module = built if built.is_file() else None
+    if built_module is None:
+        inner = sorted(p for p in built.rglob("*.vst3") if p.is_file())
+        built_module = max(inner, key=lambda p: p.stat().st_mtime) if inner else None
+    if built_module is None:
+        return fail("the built bundle contains no VST3 module binary")
+    built_module_sha256 = sha256(built_module)
+    print("  built module sha256: %s" % built_module_sha256)
 
     if (out_dir / ("%s.vst3" % EXPECT_PLUGIN_NAME)).exists():
         return fail("refusing to overwrite an existing staged artifact in %s" % out_dir)
@@ -405,6 +446,12 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
     # 6. Record every artifact hash next to the artifacts.
     zip_path = out_dir / ("%s-%s-Windows-x64.zip" % (EXPECT_PLUGIN_NAME, EXPECT_VERSION))
     staged_manifest = json.loads((out_dir / "MANIFEST-staged.json").read_text(encoding="utf-8"))
+    # The shipped module must be the module the compiler produced, or nothing here
+    # means anything.
+    if staged_manifest.get("module_sha256") != built_module_sha256:
+        return fail("staged module sha256 %s differs from the built module %s"
+                    % (staged_manifest.get("module_sha256"), built_module_sha256))
+    print("  identity proven: staged module == built module (%s)" % built_module_sha256)
     artifacts = {}
     for p in sorted(out_dir.glob("*")):
         if p.is_file() and p.name != "RUN-MANIFEST.json":
@@ -419,6 +466,7 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
                 "(verified against juce/JUCE-6.1.3-patched-modules.sha256)",
         "projucer": {"path": str(pj), "sha256": sha256(pj)},
         "built_bundle": str(built),
+        "built_module_sha256": built_module_sha256,
         "staged_module_sha256": staged_manifest.get("module_sha256"),
         "artifacts": artifacts,
         "signed": False,

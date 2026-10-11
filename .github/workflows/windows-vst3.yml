@@ -52,7 +52,7 @@ jobs:
           git config --system core.longpaths true || git config --global core.longpaths true
           git config --get core.longpaths
 
-      - name: Checkout (sparse: source, jucer, Windows tooling)
+      - name: Checkout (sparse - source, jucer, Windows tooling)
         uses: actions/checkout@v4
         with:
           sparse-checkout: |

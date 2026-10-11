@@ -506,6 +506,55 @@ if stage_allowed "windows build inputs"; then
 fi
 
 # ---------------------------------------------------------------------------
+banner "8d - RELEASE GATE TESTS"
+# ---------------------------------------------------------------------------
+# The gate decides whether anything may be published, so its own tests are a
+# required stage: they are fixture-based negative controls plus, when an evidence
+# root is supplied, the real candidate end to end.
+if stage_allowed "release gate tests"; then
+    log="$OUT_DIR/stage8d-release-gate-tests.log"
+    if SIDECHAIN_JUCE_ROOT="$JUCE_ROOT" python3 "$SCRIPT_DIR/release_gate_tests.py" \
+            ${SIDECHAIN_RELEASE_EVIDENCE_ROOT:+--evidence-root "$SIDECHAIN_RELEASE_EVIDENCE_ROOT"} \
+            >"$log" 2>&1; then
+        grep -E '^ (passed|RELEASE GATE TESTS)' "$log" | sed 's/^/  /'
+        record "release gate tests" "PASS" "$(grep -oE 'passed: [0-9]+' "$log" | tail -1)"
+    else
+        tail -25 "$log" | sed 's/^/  /'
+        record "release gate tests" "FAIL" "see $log"
+        FAILED_REQUIRED=1
+        abort_to_summary "release gate tests"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+banner "8e - RELEASE GATE VERDICT (ADVISORY)"
+# ---------------------------------------------------------------------------
+# Advisory on purpose: this stage reports whether the *distribution* may go out,
+# which is a release decision with external prerequisites, not a code-health
+# failure. Publishing is governed by the gate itself, which exits non-zero.
+if stage_allowed "release gate verdict"; then
+    log="$OUT_DIR/stage8e-release-gate.log"
+    gate_args=("--mode" "beta")
+    if [ -n "${SIDECHAIN_RELEASE_EVIDENCE_ROOT:-}" ]; then
+        gate_args+=("--evidence-root" "$SIDECHAIN_RELEASE_EVIDENCE_ROOT")
+    fi
+    gate_args+=("--offline")
+    gate_rc=0
+    python3 "$SCRIPT_DIR/release_gate.py" "${gate_args[@]}" >"$log" 2>&1 || gate_rc=$?
+    verdict="$(grep -oE '^  (DISTRIBUTION READY|BETA-ONLY[^:]*|NOT READY):.*' "$log" | tail -1)"
+    summary="$(grep -E '^  [0-9]+ PASS' "$log" | tail -1)"
+    printf '  %s\n  %s\n' "${verdict:-no verdict produced}" "${summary:-}"
+    if [ "$gate_rc" -eq 0 ]; then
+        record "release gate verdict" "PASS" "${verdict:-see $log}"
+    elif echo "${verdict:-}" | grep -q 'BETA-ONLY'; then
+        record "release gate verdict" "PASS" "${verdict}"
+    else
+        record "release gate verdict" "LIMITATION" \
+            "${verdict:-no verdict} - not a code failure; publishing is blocked until the gate passes"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
 banner "9 - OPTIONAL OFFICIAL STEINBERG VALIDATOR"
 # ---------------------------------------------------------------------------
 if stage_allowed "official VST3 validator"; then

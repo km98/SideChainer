@@ -168,6 +168,101 @@ def run(cmd, cwd=None):
     return subprocess.run([str(c) for c in cmd], cwd=cwd)
 
 
+def run_captured(cmd, cwd=None):
+    """Run a tool whose own diagnostics matter, and print them.
+
+    Projucer explains a failed resave on stdout; without this the CI log only
+    shows that it exited non-zero.
+    """
+    print("  $ %s" % " ".join(str(c) for c in cmd))
+    proc = subprocess.run([str(c) for c in cmd], cwd=cwd, capture_output=True, text=True)
+    for stream, text in (("out", proc.stdout), ("err", proc.stderr)):
+        for line in (text or "").splitlines():
+            print("    [%s] %s" % (stream, line))
+    return proc
+
+
+# Files that exist only in the patched tree, never in stock JUCE 6.1.3. Finding one
+# of them through the project's own module resolution is unambiguous evidence that
+# the build does not silently use a different JUCE.
+PATCHED_MARKERS = ("juce_core/logging/juce_AudioThreadGuard.h",
+                   "juce_core/containers/VariantBuffer.h",
+                   "juce_core/logging/juce_AudioThreadGuard.cpp")
+
+
+def module_dir_has_patched_marker(module_dir):
+    module_dir = pathlib.Path(module_dir)
+    for marker in PATCHED_MARKERS:
+        if (module_dir / marker).is_file():
+            return marker
+    return None
+
+
+def jucer_module_dir():
+    """The module directory the .jucer itself resolves to (relative paths)."""
+    text = JUCER.read_text(encoding="utf-8", errors="replace")
+    for path in re.findall(r'<MODULEPATH id="juce_core" path="([^"]+)"', text):
+        candidate = (JUCER.parent / path.replace("\\", "/")).resolve()
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def verify_generated_project_uses_patched_juce():
+    """Prove the exported Visual Studio project builds against the patched tree.
+
+    Two independent signals:
+      1. the .jucer's own module paths resolve to a tree carrying a patched-only
+         file (this is what Projucer used to write the project), and
+      2. the generated project's include paths either also resolve to such a tree,
+         or are consistent with it.
+    A generated project that points at a JUCE tree *without* the marker is treated
+    as drift and stops the build.
+    """
+    build_dir = PROJECT / "Builds" / "VisualStudio2022"
+    project_files = sorted(build_dir.glob("*.vcxproj"))
+    if not project_files:
+        return fail("no .vcxproj generated under %s" % build_dir)
+
+    jucer_modules = jucer_module_dir()
+    if not jucer_modules:
+        return fail("the .jucer has no resolvable juce_core module path; the module layout "
+                    "(<repo>/../HISE/JUCE/modules) is not provisioned on this machine")
+    jucer_marker = module_dir_has_patched_marker(jucer_modules)
+    print("  .jucer module path:  %s" % jucer_modules)
+    if not jucer_marker:
+        return fail("the .jucer resolves juce_core to %s, which has none of the patched-only "
+                    "files %s - refusing to build against a different JUCE"
+                    % (jucer_modules, list(PATCHED_MARKERS)))
+    print("  patched marker:      %s" % jucer_marker)
+
+    # Confirm the generated project references that tree rather than something else.
+    drifted = []
+    matched = []
+    for path in project_files + sorted(build_dir.glob("*.props")):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        tokens = re.findall(r'(?:\.\.[\\/])+(?:[^;"<>]*?juce_core)', text)
+        tokens += re.findall(r'[A-Za-z]:[^;"<>]*?\\juce_core', text)
+        for token in tokens:
+            candidate = (path.parent / token).resolve()
+            if not candidate.is_dir():
+                continue
+            if module_dir_has_patched_marker(candidate):
+                matched.append(candidate)
+            else:
+                drifted.append(candidate)
+    if drifted:
+        return fail("the generated project also references JUCE modules without the patched "
+                    "files: %s" % sorted({str(d) for d in drifted})[:3])
+    if matched:
+        print("  generated project:   %s" % sorted({str(m) for m in matched})[0])
+    else:
+        print("  generated project:   no juce_core include path could be resolved from the "
+              ".vcxproj (Projucer may emit it in a property sheet); the .jucer check above "
+              "is authoritative")
+    return 0
+
+
 def require_windows(mode):
     if os.name != "nt":
         return fail("%s requires Windows (use --check on other OSes)" % mode)
@@ -240,16 +335,22 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # 1. Export the Visual Studio 2022 solution from the .jucer.
-    rc = run([pj, "--resave", "--setglobalpath", "juceRoot=%s" % juce_root, JUCER])
+    #
+    # Projucer 6.1.3 has no --setglobalpath option: --resave exports every
+    # exporter the project defines, and the project's module paths are relative to
+    # the .jucer file, i.e. <repo>/../HISE/JUCE/modules. The caller therefore has
+    # to provision the patched tree at that sibling location (the workflow does).
+    rc = run_captured([pj, "--resave", JUCER])
     if rc.returncode != 0:
-        return fail("Projucer --resave failed")
-    rc = run([pj, "--resave", JUCER, "--target", "VisualStudio2022"])
-    if rc.returncode != 0:
-        return fail("Projucer VisualStudio2022 export failed")
+        return fail("Projucer --resave failed with exit code %d" % rc.returncode)
 
     sln = PROJECT / "Builds" / "VisualStudio2022" / "SideChain.sln"
     if not sln.is_file():
-        return fail("expected solution not generated: %s" % sln)
+        return fail("expected solution not generated: %s (is the VS2022 exporter present "
+                    "in the .jucer?)" % sln)
+    rc = verify_generated_project_uses_patched_juce()
+    if rc != 0:
+        return rc
 
     # 2. Build the VST3 target, x64 Release.
     msbuild = find_msbuild(msbuild_arg)
@@ -282,7 +383,11 @@ def build(juce_root, projucer, out_dir, msbuild_arg=None):
     if rc.returncode != 0:
         return fail("packaging failed")
 
-    # 5. Record every artifact hash next to the artifacts.
+    # 5. Keep the project file Projucer rewrote, so the exporter definition can be
+    #    reviewed (and committed in its normalised form) instead of guessed at.
+    shutil.copy2(JUCER, out_dir / "SideChain.jucer.resaved")
+
+    # 6. Record every artifact hash next to the artifacts.
     zip_path = out_dir / ("%s-%s-Windows-x64.zip" % (EXPECT_PLUGIN_NAME, EXPECT_VERSION))
     staged_manifest = json.loads((out_dir / "MANIFEST-staged.json").read_text(encoding="utf-8"))
     artifacts = {}

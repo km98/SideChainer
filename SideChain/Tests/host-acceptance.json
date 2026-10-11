@@ -1,0 +1,31 @@
+{
+  "_about": [
+    "Host acceptance status for PumpCurve 0.4.1. This is the only place DAW status",
+    "is stated, and release_gate.py refuses a 'verified' or 'discovery_verified'",
+    "claim whose evidence artifact does not exist (it hashes what it finds).",
+    "'discovery_verified' means the host lists the plug-in; it is NOT insertion or",
+    "operation testing. 'not_tested' means exactly that.",
+    "Evidence paths are resolved against SIDECHAIN's evidence root",
+    "(release_gate.py --evidence-root) or this file's directory."
+  ],
+  "logic_pro": {
+    "status": "not_tested",
+    "note": "Logic's Plug-In Manager validates the AU and the system advertises aufx SdCh Musc as Music-Prod: PumpCurve, but the Audio FX list omits third-party AUs from several vendors, so insertion was never achieved and is not claimed.",
+    "evidence": "PHASEG-HOST-TEST-REPORT-RUN12-20261010.md"
+  },
+  "fl_studio": {
+    "status": "discovery_verified",
+    "note": "FL Studio's own plug-in database records ps_name=PumpCurve for the renamed bundle (before the rename it recorded SideChain for the same binary). Loading the plug-in into a channel was not performed.",
+    "evidence": "run12-20261010/logs/fl-db-rebuilt"
+  },
+  "ableton_live": {
+    "status": "not_tested",
+    "note": "Ableton Live is not installed on this machine and no licence was obtained.",
+    "evidence": ""
+  },
+  "windows_daw": {
+    "status": "not_tested",
+    "note": "No Windows host or DAW exists here. The CI installer test proves install/upgrade/uninstall behaviour, which is not DAW acceptance.",
+    "evidence": ""
+  }
+}

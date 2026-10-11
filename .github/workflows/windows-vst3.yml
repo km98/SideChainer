@@ -110,14 +110,20 @@ jobs:
           python tools/stage_windows_vst3.py --self-test 2>&1 | tee "$T/logs/stage_self_test.log"
           python tools/build_windows_vst3.py --check 2>&1 | tee "$T/logs/build_check.log"
 
+      # The project's module paths are relative to the .jucer file and expect the
+      # JUCE tree next to the repository ("<repo>/../HISE/JUCE"), exactly as on the
+      # Mac. The patched tree goes there so the generated Visual Studio project
+      # resolves to it; the stock tree is only used to build Projucer.
       - name: Provision JUCE (patched product tree + stock Projucer tree)
         id: juce
         shell: bash
         run: |
           set -euo pipefail
           T="$(cygpath -u "$RUNNER_TEMP")"; mkdir -p "$T/logs"
+          SIBLING="$(dirname "$(cygpath -u "$GITHUB_WORKSPACE")")/HISE/JUCE"
+          echo "patched JUCE -> $(cygpath -m "$SIBLING")" | tee "$T/logs/juce_path.txt"
           cd SideChain/Builds/Windows/juce
-          python verify_juce_tree.py --provision --dest "$T/juce-patched" 2>&1 | tee "$T/logs/juce_patched.log"
+          python verify_juce_tree.py --provision --dest "$SIBLING" 2>&1 | tee "$T/logs/juce_patched.log"
           python verify_juce_tree.py --extract-stock --dest "$T/juce-stock" 2>&1 | tee "$T/logs/juce_stock.log"
 
       - name: Build Projucer 6.1.3 (stock tree)
@@ -138,6 +144,7 @@ jobs:
         run: |
           set -uo pipefail
           T="$(cygpath -u "$RUNNER_TEMP")"; mkdir -p "$T/artifacts"
+          SIBLING="$(dirname "$(cygpath -u "$GITHUB_WORKSPACE")")/HISE/JUCE"
           cd SideChain/Builds/Windows
           PJ="$(find "$T/juce-stock" -name Projucer.exe -type f | sort | tail -1)"
           echo "Projucer: $PJ"
@@ -145,7 +152,7 @@ jobs:
           MSB=()
           [ -n "${MSBUILD_PATH:-}" ] && MSB=(--msbuild "$MSBUILD_PATH")
           python tools/build_windows_vst3.py --build \
-              --juce-root "$T/juce-patched" --projucer "$PJ" --out-dir "$T/artifacts" \
+              --juce-root "$SIBLING" --projucer "$PJ" --out-dir "$T/artifacts" \
               "${MSB[@]}" 2>&1 | tee "$T/logs/build.log"
 
       - name: Install Inno Setup 6

@@ -125,7 +125,13 @@ powershell -ExecutionPolicy Bypass -File installer\test_install_uninstall.ps1 `
 The installer never deletes anything it cannot identify as this product: a legacy
 `SideChain.vst3` / `SideChainer.vst3` is removed only when its version resource
 says `ProductName = PumpCurve` or `CompanyName = Music-Prod`; a 32-bit legacy
-bundle is reported and left alone. Uninstalling removes only what the installer
+bundle is reported and left alone. That decision is made by
+`installer/cleanup_legacy.ps1`, which the recipe ships as a `dontcopy` file and
+runs hidden, because Inno Setup's Pascal Script cannot make it: its support
+functions cover numeric versions only, it has no `StringFileInfo` accessor and it
+rejects a `Pointer` type, so `ISCC` refuses to compile a script that tries. The
+helper exits non-zero without deleting anything when the module or its version
+information cannot be read, and the installer logs that outcome. Uninstalling removes only what the installer
 wrote (plus the uninstaller in `…\Common Files\PumpCurve`, deliberately outside
 the folder hosts scan).
 

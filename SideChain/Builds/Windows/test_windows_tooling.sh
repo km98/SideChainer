@@ -154,13 +154,40 @@ else
     check $? "uninstaller is kept out of the folder hosts scan"
     grep -q "LEGACY_BUNDLES = 'SideChain.vst3,SideChainer.vst3'" "$iss"
     check $? "knows the legacy bundle names it may clean up"
-    grep -q "Company = 'Music-Prod'" "$iss"
-    check $? "legacy cleanup requires the product's own version resource"
-    grep -q "if Len = 0 then exit;" "$iss"
-    check $? "unreadable version resource means 'not ours' (never deleted)"
-    deletions="$(grep -c 'DelTree(' "$iss")"
-    [ "$deletions" = "1" ]
-    check $? "exactly one deletion call in the recipe (the guarded legacy bundle)"
+    # Inno Setup's Pascal Script has no Pointer type and no StringFileInfo accessor,
+    # so the recipe cannot read a version resource itself: ISCC rejects the script.
+    # The ownership decision therefore lives in the helper it ships.
+    helper="$INSTALLER/cleanup_legacy.ps1"
+    if [ ! -f "$helper" ]; then
+        bad "missing $helper (the installer's ownership check)"
+    else
+        grep -q "ProductName -eq 'PumpCurve'" "$helper"
+        check $? "legacy cleanup requires the product's own version resource"
+        grep -q "CompanyName -eq 'Music-Prod'" "$helper"
+        check $? "legacy cleanup recognises the previous product by its publisher"
+        grep -q 'exit 2' "$helper" && grep -q 'exit 3' "$helper"
+        check $? "unreadable or foreign bundle means 'not ours' (never deleted)"
+        [ "$(grep -c 'Remove-Item -Recurse -Force' "$helper")" = "1" ]
+        check $? "exactly one deletion call, inside the guarded helper"
+        grep -q 'x86_64-win' "$helper"
+        check $? "the helper reads the module inside the bundle"
+    fi
+    # Only code counts here: the recipe's comments legitimately explain which APIs
+    # Pascal Script rejects, so the patterns are the usages, not the words.
+    if grep -qE 'P: *Pointer|VerQueryValue\(|GetFileVersionInfo\(' "$iss"; then
+        bad "recipe uses Pascal Script version-resource APIs that ISCC rejects"
+    else
+        ok "recipe leaves the version-resource check to the helper"
+    fi
+    grep -q 'ExtractTemporaryFile(CLEANUP_HELPER)' "$iss"
+    check $? "the helper is extracted at install time"
+    grep -q 'cleanup_legacy.ps1"; Flags: dontcopy' "$iss"
+    check $? "the helper travels inside the installer"
+    if grep -q 'DelTree(' "$iss"; then
+        bad "recipe still deletes legacy bundles itself"
+    else
+        ok "the recipe performs no deletion of its own"
+    fi
     if grep -q 'DeleteFile' "$iss"; then
         bad "recipe deletes individual files"
     else
@@ -285,7 +312,7 @@ grep -q 'VERSION: 0.4.1' "$WORKFLOW"
 check $? "workflow version constant matches"
 grep -q 'PRODUCT = "PumpCurve"' "$TOOLS/stage_windows_vst3.py"
 check $? "staging tool product constant matches"
-grep -q "Product = '{#AppName}'" "$iss"
+grep -q "ProductName -eq 'PumpCurve'" "$INSTALLER/cleanup_legacy.ps1"
 check $? "installer identity constant matches"
 
 # ---------------------------------------------------------------------------

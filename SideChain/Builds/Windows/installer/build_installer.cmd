@@ -43,6 +43,13 @@ for %%P in (
 if "%ISCC%"=="" (
   where ISCC.exe >nul 2>&1 && set ISCC=ISCC.exe
 )
+if not exist "%HERE%cleanup_legacy.ps1" (
+  echo ERROR: the ownership-check helper is missing: %HERE%cleanup_legacy.ps1
+  echo        The recipe ships it as a dontcopy file; without it the installer
+  echo        cannot tell our legacy bundles from another vendor's plug-in.
+  exit /b 4
+)
+
 if "%ISCC%"=="" (
   echo ERROR: Inno Setup 6 ^(ISCC.exe^) not found.
   echo        Install it from https://jrsoftware.org/isdl.php ^(or "choco install innosetup -y"^) and re-run.

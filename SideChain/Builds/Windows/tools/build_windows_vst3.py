@@ -406,9 +406,12 @@ def fix_generated_resource_identity(builds_dir):
             entry["backup"] = str(backup)
             print("  version resource: %s -> ProductName/FileDescription = %s (%d value(s))"
                   % (rc.relative_to(builds_dir), EXPECT_PLUGIN_NAME, changes))
-        else:
+        elif matched:
             print("  version resource: %s already identifies %s"
                   % (rc.relative_to(builds_dir), EXPECT_PLUGIN_NAME))
+        else:
+            print("  version resource: %s carries no ProductName/FileDescription value"
+                  % rc.relative_to(builds_dir))
         info[str(rc.relative_to(builds_dir))] = entry
 
     # Verify by reading the values back, tolerating the padding the exporter emits

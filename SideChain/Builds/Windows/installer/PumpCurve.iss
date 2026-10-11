@@ -101,7 +101,8 @@ var
   I, Rc: Integer;
   Target: String;
 begin
-  Names := StringSplit(LEGACY_BUNDLES, ',', stALL);
+  { StringSplit takes an array of separators, not a single character. }
+  Names := StringSplit(LEGACY_BUNDLES, [','], stAll);
   if not FileExists(PowerShellPath()) then begin
     { No PowerShell means no ownership check, so nothing may be deleted. }
     for I := 0 to GetArrayLength(Names) - 1 do begin

@@ -1,0 +1,7 @@
+== version-resource identity self-test (fixture) ==
+  version resource: SideChain_VST3\resources.rc -> ProductName/FileDescription = PumpCurve (2 value(s))
+  ok: ProductName/FileDescription rewritten, CompanyName untouched, original kept
+  version resource: SideChain_VST3\resources.rc already identifies PumpCurve
+  ok: running it again changes nothing
+  ok: a missing generated resource is reported instead of silently skipped
+SELF-TEST: PASS

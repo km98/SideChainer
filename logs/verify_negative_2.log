@@ -1,0 +1,8 @@
+== PumpCurve Windows VST3 verification ==
+  VST3 folder: C:\Program Files\Common Files\VST3
+  FAIL: bundle present: C:\Program Files\Common Files\VST3\PumpCurve.vst3
+  FAIL: module present: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3
+  ok:   no legacy bundle at C:\Program Files\Common Files\VST3\SideChain.vst3
+  ok:   no legacy bundle at C:\Program Files\Common Files\VST3\SideChainer.vst3
+
+VERIFICATION FAILED (2 problem(s))

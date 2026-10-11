@@ -1,0 +1,153 @@
+MSBuild version 17.14.60+43b635718 for .NET Framework
+Build started 10/11/2026 9:49:27 AM.
+
+     1>Project "D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer.sln" on node 1 (default targets).
+     1>ValidateSolutionConfiguration:
+         Building solution configuration "Release|x64".
+     1>Project "D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer.sln" (1) is building "D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer_App.vcxproj" (2) on node 1 (default targets).
+     2>PrepareForBuild:
+         Creating directory "x64\Release\App\".
+         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+         Creating directory "x64\Release\App\Projucer_App.tlog\".
+       InitializeBuildStatus:
+         Creating "x64\Release\App\Projucer_App.tlog\unsuccessfulbuild" because "AlwaysCreate" was specified.
+         Touching "x64\Release\App\Projucer_App.tlog\unsuccessfulbuild".
+       ClCompile:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\CL.exe /c /I..\..\JuceLibraryCode /I..\..\..\Build /I..\..\..\..\modules /Zi /nologo /W4 /WX- /diagnostics:column /MP /Ox /D _CRT_SECURE_NO_WARNINGS /D WIN32 /D _WINDOWS /D NDEBUG /D JUCE_DISPLAY_SPLASH_SCREEN=0 /D JUCE_USE_DARK_SPLASH_SCREEN=1 /D JUCE_PROJUCER_VERSION=0x60103 /D JUCE_MODULE_AVAILABLE_juce_build_tools=1 /D JUCE_MODULE_AVAILABLE_juce_core=1 /D JUCE_MODULE_AVAILABLE_juce_cryptography=1 /D JUCE_MODULE_AVAILABLE_juce_data_structures=1 /D JUCE_MODULE_AVAILABLE_juce_events=1 /D JUCE_MODULE_AVAILABLE_juce_graphics=1 /D JUCE_MODULE_AVAILABLE_juce_gui_basics=1 /D JUCE_MODULE_AVAILABLE_juce_gui_extra=1 /D JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 /D JUCE_LOG_ASSERTIONS=1 /D JUCE_USE_CURL=1 /D JUCE_LOAD_CURL_SYMBOLS_LAZILY=1 /D JUCE_ALLOW_STATIC_NULL_VARIABLES=0 /D JUCE_STRICT_REFCOUNTEDPOINTER=1 /D JUCE_WEB_BROWSER=0 /D JUCE_STANDALONE_APPLICATION=1 /D JUCER_VS2022_78A503E=1 /D JUCE_APP_VERSION=6.1.3 /D JUCE_APP_VERSION_HEX=0x60103 /D JucePlugin_Build_VST=0 /D JucePlugin_Build_VST3=0 /D JucePlugin_Build_AU=0 /D JucePlugin_Build_AUv3=0 /D JucePlugin_Build_RTAS=0 /D JucePlugin_Build_AAX=0 /D JucePlugin_Build_Standalone=0 /D JucePlugin_Build_Unity=0 /Gm- /EHsc /MT /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /std:c++14 /Fo"x64\Release\App\\" /Fd"x64\Release\App\\Projucer.pdb" /external:W4 /Gd /TP /FC /errorReport:queue /w44265 /w45038 /w44062 ..\..\Source\Application\StartPage\jucer_NewProjectWizard.cpp ..\..\Source\Application\StartPage\jucer_StartPageComponent.cpp ..\..\Source\Application\jucer_AutoUpdater.cpp ..\..\Source\Application\jucer_CommandLine.cpp ..\..\Source\Application\jucer_Main.cpp ..\..\Source\Application\jucer_MainWindow.cpp ..\..\Source\CodeEditor\jucer_DocumentEditorComponent.cpp ..\..\Source\CodeEditor\jucer_OpenDocumentManager.cpp ..\..\Source\CodeEditor\jucer_SourceCodeEditor.cpp ..\..\Source\ComponentEditor\Components\jucer_ComponentTypeHandler.cpp ..\..\Source\ComponentEditor\Documents\jucer_ButtonDocument.cpp ..\..\Source\ComponentEditor\Documents\jucer_ComponentDocument.cpp ..\..\Source\ComponentEditor\PaintElements\jucer_ColouredElement.cpp ..\..\Source\ComponentEditor\PaintElements\jucer_PaintElement.cpp ..\..\Source\ComponentEditor\PaintElements\jucer_PaintElementGroup.cpp ..\..\Source\ComponentEditor\PaintElements\jucer_PaintElementImage.cpp ..\..\Source\ComponentEditor\PaintElements\jucer_PaintElementPath.cpp ..\..\Source\ComponentEditor\UI\jucer_ComponentLayoutEditor.cpp ..\..\Source\ComponentEditor\UI\jucer_ComponentOverlayComponent.cpp ..\..\Source\ComponentEditor\UI\jucer_EditingPanelBase.cpp ..\..\Source\ComponentEditor\UI\jucer_JucerDocumentEditor.cpp ..\..\Source\ComponentEditor\UI\jucer_PaintRoutineEditor.cpp ..\..\Source\ComponentEditor\UI\jucer_PaintRoutinePanel.cpp ..\..\Source\ComponentEditor\UI\jucer_ResourceEditorPanel.cpp ..\..\Source\ComponentEditor\UI\jucer_TestComponent.cpp ..\..\Source\ComponentEditor\jucer_BinaryResources.cpp ..\..\Source\ComponentEditor\jucer_ComponentLayout.cpp ..\..\Source\ComponentEditor\jucer_GeneratedCode.cpp ..\..\Source\ComponentEditor\jucer_JucerDocument.cpp ..\..\Source\ComponentEditor\jucer_ObjectTypes.cpp ..\..\Source\ComponentEditor\jucer_PaintRoutine.cpp ..\..\Source\Project\Modules\jucer_Modules.cpp ..\..\Source\Project\UI\jucer_HeaderComponent.cpp ..\..\Source\Project\jucer_Project.cpp ..\..\Source\ProjectSaving\jucer_ProjectExporter.cpp ..\..\Source\ProjectSaving\jucer_ProjectSaver.cpp ..\..\Source\ProjectSaving\jucer_ResourceFile.cpp ..\..\Source\Settings\jucer_AppearanceSettings.cpp ..\..\Source\Settings\jucer_StoredSettings.cpp ..\..\Source\Utility\Helpers\jucer_CodeHelpers.cpp ..\..\Source\Utility\Helpers\jucer_FileHelpers.cpp ..\..\Source\Utility\Helpers\jucer_MiscUtilities.cpp ..\..\Source\Utility\Helpers\jucer_NewFileWizard.cpp ..\..\Source\Utility\Helpers\jucer_VersionInfo.cpp ..\..\Source\Utility\PIPs\jucer_PIPGenerator.cpp ..\..\Source\Utility\UI\jucer_Icons.cpp ..\..\Source\Utility\UI\jucer_JucerTreeViewBase.cpp ..\..\Source\Utility\UI\jucer_ProjucerLookAndFeel.cpp ..\..\Source\Utility\UI\jucer_SlidingPanelComponent.cpp ..\..\JuceLibraryCode\BinaryData.cpp ..\..\JuceLibraryCode\include_juce_build_tools.cpp ..\..\JuceLibraryCode\include_juce_core.cpp ..\..\JuceLibraryCode\include_juce_cryptography.cpp ..\..\JuceLibraryCode\include_juce_data_structures.cpp ..\..\JuceLibraryCode\include_juce_events.cpp ..\..\JuceLibraryCode\include_juce_graphics.cpp ..\..\JuceLibraryCode\include_juce_gui_extra.cpp
+         jucer_NewProjectWizard.cpp
+         jucer_StartPageComponent.cpp
+         jucer_AutoUpdater.cpp
+         jucer_CommandLine.cpp
+         jucer_Main.cpp
+         jucer_MainWindow.cpp
+         jucer_DocumentEditorComponent.cpp
+         jucer_OpenDocumentManager.cpp
+         jucer_SourceCodeEditor.cpp
+         jucer_ComponentTypeHandler.cpp
+         jucer_ButtonDocument.cpp
+         jucer_ComponentDocument.cpp
+         jucer_ColouredElement.cpp
+         jucer_PaintElement.cpp
+         jucer_PaintElementGroup.cpp
+         jucer_PaintElementImage.cpp
+         jucer_PaintElementPath.cpp
+         jucer_ComponentLayoutEditor.cpp
+         jucer_ComponentOverlayComponent.cpp
+         jucer_EditingPanelBase.cpp
+         jucer_JucerDocumentEditor.cpp
+         jucer_PaintRoutineEditor.cpp
+         jucer_PaintRoutinePanel.cpp
+         jucer_ResourceEditorPanel.cpp
+         jucer_TestComponent.cpp
+         jucer_BinaryResources.cpp
+         jucer_ComponentLayout.cpp
+         jucer_GeneratedCode.cpp
+         jucer_JucerDocument.cpp
+         jucer_ObjectTypes.cpp
+         jucer_PaintRoutine.cpp
+         jucer_Modules.cpp
+         jucer_HeaderComponent.cpp
+         jucer_Project.cpp
+         jucer_ProjectExporter.cpp
+         jucer_ProjectSaver.cpp
+         jucer_ResourceFile.cpp
+         jucer_AppearanceSettings.cpp
+         jucer_StoredSettings.cpp
+         jucer_CodeHelpers.cpp
+         jucer_FileHelpers.cpp
+         jucer_MiscUtilities.cpp
+         jucer_NewFileWizard.cpp
+         jucer_VersionInfo.cpp
+         jucer_PIPGenerator.cpp
+         jucer_Icons.cpp
+         jucer_JucerTreeViewBase.cpp
+         jucer_ProjucerLookAndFeel.cpp
+         jucer_SlidingPanelComponent.cpp
+         BinaryData.cpp
+         include_juce_build_tools.cpp
+         include_juce_core.cpp
+         include_juce_cryptography.cpp
+         include_juce_data_structures.cpp
+         include_juce_events.cpp
+         include_juce_graphics.cpp
+         include_juce_gui_extra.cpp
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\CL.exe /c /I..\..\JuceLibraryCode /I..\..\..\Build /I..\..\..\..\modules /Zi /nologo /W4 /WX- /diagnostics:column /MP /Ox /D _CRT_SECURE_NO_WARNINGS /D WIN32 /D _WINDOWS /D NDEBUG /D JUCE_DISPLAY_SPLASH_SCREEN=0 /D JUCE_USE_DARK_SPLASH_SCREEN=1 /D JUCE_PROJUCER_VERSION=0x60103 /D JUCE_MODULE_AVAILABLE_juce_build_tools=1 /D JUCE_MODULE_AVAILABLE_juce_core=1 /D JUCE_MODULE_AVAILABLE_juce_cryptography=1 /D JUCE_MODULE_AVAILABLE_juce_data_structures=1 /D JUCE_MODULE_AVAILABLE_juce_events=1 /D JUCE_MODULE_AVAILABLE_juce_graphics=1 /D JUCE_MODULE_AVAILABLE_juce_gui_basics=1 /D JUCE_MODULE_AVAILABLE_juce_gui_extra=1 /D JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1 /D JUCE_LOG_ASSERTIONS=1 /D JUCE_USE_CURL=1 /D JUCE_LOAD_CURL_SYMBOLS_LAZILY=1 /D JUCE_ALLOW_STATIC_NULL_VARIABLES=0 /D JUCE_STRICT_REFCOUNTEDPOINTER=1 /D JUCE_WEB_BROWSER=0 /D JUCE_STANDALONE_APPLICATION=1 /D JUCER_VS2022_78A503E=1 /D JUCE_APP_VERSION=6.1.3 /D JUCE_APP_VERSION_HEX=0x60103 /D JucePlugin_Build_VST=0 /D JucePlugin_Build_VST3=0 /D JucePlugin_Build_AU=0 /D JucePlugin_Build_AUv3=0 /D JucePlugin_Build_RTAS=0 /D JucePlugin_Build_AAX=0 /D JucePlugin_Build_Standalone=0 /D JucePlugin_Build_Unity=0 /Gm- /EHsc /MT /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /GR /std:c++14 /Fo"x64\Release\App\\" /Fd"x64\Release\App\\Projucer.pdb" /external:W4 /Gd /TP /FC /errorReport:queue  /bigobj /w44265 /w45038 /w44062 ..\..\JuceLibraryCode\include_juce_gui_basics.cpp
+         include_juce_gui_basics.cpp
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x86\rc.exe /D NDEBUG /l"0x0409" /nologo /fo"x64\Release\App\resources.res" .\resources.rc 
+       Link:
+         C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Tools\MSVC\14.44.35207\bin\HostX86\x64\link.exe /ERRORREPORT:QUEUE /OUT:"D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\\Projucer.exe" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"x64\Release\App\\Projucer.pdb" /SUBSYSTEM:WINDOWS /LARGEADDRESSAWARE /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.lib" /MACHINE:X64 x64\Release\App\resources.res
+         x64\Release\App\\jucer_NewProjectWizard.obj
+         x64\Release\App\\jucer_StartPageComponent.obj
+         x64\Release\App\\jucer_AutoUpdater.obj
+         x64\Release\App\\jucer_CommandLine.obj
+         x64\Release\App\\jucer_Main.obj
+         x64\Release\App\\jucer_MainWindow.obj
+         x64\Release\App\\jucer_DocumentEditorComponent.obj
+         x64\Release\App\\jucer_OpenDocumentManager.obj
+         x64\Release\App\\jucer_SourceCodeEditor.obj
+         x64\Release\App\\jucer_ComponentTypeHandler.obj
+         x64\Release\App\\jucer_ButtonDocument.obj
+         x64\Release\App\\jucer_ComponentDocument.obj
+         x64\Release\App\\jucer_ColouredElement.obj
+         x64\Release\App\\jucer_PaintElement.obj
+         x64\Release\App\\jucer_PaintElementGroup.obj
+         x64\Release\App\\jucer_PaintElementImage.obj
+         x64\Release\App\\jucer_PaintElementPath.obj
+         x64\Release\App\\jucer_ComponentLayoutEditor.obj
+         x64\Release\App\\jucer_ComponentOverlayComponent.obj
+         x64\Release\App\\jucer_EditingPanelBase.obj
+         x64\Release\App\\jucer_JucerDocumentEditor.obj
+         x64\Release\App\\jucer_PaintRoutineEditor.obj
+         x64\Release\App\\jucer_PaintRoutinePanel.obj
+         x64\Release\App\\jucer_ResourceEditorPanel.obj
+         x64\Release\App\\jucer_TestComponent.obj
+         x64\Release\App\\jucer_BinaryResources.obj
+         x64\Release\App\\jucer_ComponentLayout.obj
+         x64\Release\App\\jucer_GeneratedCode.obj
+         x64\Release\App\\jucer_JucerDocument.obj
+         x64\Release\App\\jucer_ObjectTypes.obj
+         x64\Release\App\\jucer_PaintRoutine.obj
+         x64\Release\App\\jucer_Modules.obj
+         x64\Release\App\\jucer_HeaderComponent.obj
+         x64\Release\App\\jucer_Project.obj
+         x64\Release\App\\jucer_ProjectExporter.obj
+         x64\Release\App\\jucer_ProjectSaver.obj
+         x64\Release\App\\jucer_ResourceFile.obj
+         x64\Release\App\\jucer_AppearanceSettings.obj
+         x64\Release\App\\jucer_StoredSettings.obj
+         x64\Release\App\\jucer_CodeHelpers.obj
+         x64\Release\App\\jucer_FileHelpers.obj
+         x64\Release\App\\jucer_MiscUtilities.obj
+         x64\Release\App\\jucer_NewFileWizard.obj
+         x64\Release\App\\jucer_VersionInfo.obj
+         x64\Release\App\\jucer_PIPGenerator.obj
+         x64\Release\App\\jucer_Icons.obj
+         x64\Release\App\\jucer_JucerTreeViewBase.obj
+         x64\Release\App\\jucer_ProjucerLookAndFeel.obj
+         x64\Release\App\\jucer_SlidingPanelComponent.obj
+         x64\Release\App\\BinaryData.obj
+         x64\Release\App\\include_juce_build_tools.obj
+         x64\Release\App\\include_juce_core.obj
+         x64\Release\App\\include_juce_cryptography.obj
+         x64\Release\App\\include_juce_data_structures.obj
+         x64\Release\App\\include_juce_events.obj
+         x64\Release\App\\include_juce_graphics.obj
+         x64\Release\App\\include_juce_gui_basics.obj
+         x64\Release\App\\include_juce_gui_extra.obj
+         Projucer_App.vcxproj -> D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe
+       FinalizeBuildStatus:
+         Deleting file "x64\Release\App\Projucer_App.tlog\unsuccessfulbuild".
+         Touching "x64\Release\App\Projucer_App.tlog\Projucer_App.lastbuildstate".
+     2>Done Building Project "D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer_App.vcxproj" (default targets).
+     1>Done Building Project "D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer.sln" (default targets).
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:01:45.97
+  msbuild: C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe
+  $ C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\Projucer.sln /m /p:Configuration=Release /p:Platform=x64
+PROJUCER OK: D:\a\_temp\juce-stock\extras\Projucer\Builds\VisualStudio2022\x64\Release\App\Projucer.exe
+  sha256: df326b5003f40df46741b0961874b78d5bcc7be3f4eb3ced1d523ecdbcd08fa9

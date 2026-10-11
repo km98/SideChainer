@@ -1,0 +1,45 @@
+{
+  "artifacts": {
+    "MANIFEST-staged.json": {
+      "bytes": 658,
+      "sha256": "1e60eb400c8980a51f876824310092b38b7ec82bf8287e2aebc1e2aee6f5376e"
+    },
+    "PumpCurve-0.4.1-Windows-x64.zip": {
+      "bytes": 1514572,
+      "sha256": "0f540f02c8baccd0988763e351a5168c5fec10ee3bac6e282a9156bd1cdd83f2"
+    },
+    "SHA256SUMS": {
+      "bytes": 99,
+      "sha256": "fc55eae074910ff755fdaca1538286d3a6a9897b053bb77716d0464cf2869828"
+    },
+    "SideChain.jucer.resaved": {
+      "bytes": 9191,
+      "sha256": "f54359fb88e36ab259418d00f3c3a9f8461c19af7604ea1f4ff33ccb04159d9c"
+    }
+  },
+  "built_bundle": "D:\\a\\SideChainer\\SideChainer\\SideChain\\Builds\\VisualStudio2022\\x64\\Release\\VST3\\SideChain.vst3",
+  "built_module_sha256": "83c4fada924dcabed7cd47fed79d7ae434487736781f09b99e16fadaf95d8c93",
+  "format": "VST3",
+  "juce": "6.1.3 + juce/JUCE-6.1.3-patched-overlay.tar.gz (verified against juce/JUCE-6.1.3-patched-modules.sha256)",
+  "platform": "windows-x64",
+  "product": "PumpCurve",
+  "product_identity_rc": {
+    "resources.rc": {
+      "after_sha256": "9053ba770fc46daf70837f9be061e79bf508bdeb04add52510231f79e025d525",
+      "backup": "D:\\a\\SideChainer\\SideChainer\\SideChain\\Builds\\VisualStudio2022\\resources.rc.pre-pumpcurve",
+      "before_sha256": "f4282bb337d24fac4da7eee9765f2f93c711961b730fe487ed12f872680a0d31",
+      "changes": 2,
+      "path": "D:\\a\\SideChainer\\SideChainer\\SideChain\\Builds\\VisualStudio2022\\resources.rc",
+      "values_matched": 2
+    }
+  },
+  "projucer": {
+    "path": "D:\\a\\_temp\\juce-stock\\extras\\Projucer\\Builds\\VisualStudio2022\\x64\\Release\\App\\Projucer.exe",
+    "sha256": "df326b5003f40df46741b0961874b78d5bcc7be3f4eb3ced1d523ecdbcd08fa9"
+  },
+  "signed": false,
+  "signing_note": "no Authenticode certificate is used in this pipeline; the installer is unsigned until a certificate is supplied",
+  "source_revision": "a83a083056513d380f19a988a02b2eda2c91bdf6",
+  "staged_module_sha256": "83c4fada924dcabed7cd47fed79d7ae434487736781f09b99e16fadaf95d8c93",
+  "version": "0.4.1"
+}

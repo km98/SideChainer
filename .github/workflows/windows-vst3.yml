@@ -42,8 +42,25 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
-      - name: Checkout
+      # The repository tracks release evidence with very deep paths (nested PKG
+      # extractions), which exceed the Windows MAX_PATH limit and make a plain
+      # checkout fail with "Filename too long". Long paths are enabled first, and
+      # the checkout is restricted to what this build actually needs.
+      - name: Allow long paths
+        shell: bash
+        run: |
+          git config --system core.longpaths true || git config --global core.longpaths true
+          git config --get core.longpaths
+
+      - name: Checkout (sparse: source, jucer, Windows tooling)
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /.github/
+            /SideChain/Builds/Windows/
+            /SideChain/Source/
+            /SideChain/SideChain.jucer
+          sparse-checkout-cone-mode: false
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,8 +80,11 @@ jobs:
             echo "runner:   $RUNNER_OS $RUNNER_ARCH ($RUNNER_NAME)"
             echo "python:   $(python --version 2>&1)"
             echo "git head: $(git rev-parse HEAD)"
+            echo "git longpaths: $(git config --get core.longpaths || echo unset)"
             echo "run:      $GITHUB_WORKFLOW #$GITHUB_RUN_NUMBER"
             echo "temp:     $T"
+            echo "checked out:"
+            git ls-files | head -20
           } | tee "$T/logs/toolchain.txt"
           msbuild -version 2>&1 | tail -3 | tee -a "$T/logs/toolchain.txt"
 

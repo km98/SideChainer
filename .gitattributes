@@ -1,0 +1,5 @@
+# Generated/derived binaries must be checked out byte-for-byte on every platform:
+# the patched-JUCE overlay is verified against a SHA-256 manifest on Windows, so
+# any line-ending or keyword conversion would break the build.
+SideChain/Builds/Windows/juce/*.tar.gz binary
+SideChain/Builds/Windows/juce/*.sha256 -text

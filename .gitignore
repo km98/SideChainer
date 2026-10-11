@@ -66,3 +66,14 @@ SideChain/Tests/HostProbeAU
 SideChain/Tests/LogicFidelityProbe
 SideChain/Tests/CPUBench
 SideChain/HostCheck/VST3BusCheck
+
+# --- Windows build pipeline (generated locally or on the CI runner) ---
+SideChain/Builds/Windows/artifacts/
+SideChain/Builds/Windows/__pycache__/
+SideChain/Builds/Windows/tools/__pycache__/
+SideChain/Builds/Windows/juce/__pycache__/
+# Projucer-generated Visual Studio project and its MSBuild output
+SideChain/Builds/VisualStudio2022/
+SideChain/Builds/VisualStudio2019/
+# Machine-local Windows handoff copies
+Windows-Build-Transfer/**/artifacts/

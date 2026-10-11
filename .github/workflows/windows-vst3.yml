@@ -1,0 +1,261 @@
+name: windows-vst3
+
+# Builds the Windows x64 VST3 from this repository's source, compiles the Inno
+# Setup installer, and proves the installer on a throwaway Windows machine:
+# silent install -> payload hash vs the built artifact -> upgrade cleanup of our
+# own legacy bundle -> foreign plug-in untouched -> silent uninstall.
+#
+# The products are published to a per-run results branch (they are committed, not
+# attached as artifacts, so they can be fetched without any additional token) and
+# additionally offered as workflow artifacts. Nothing here publishes a customer
+# download: distribution goes through the website once the upload credential and
+# the host acceptance tests exist.
+#
+# Honest limits, recorded in RESULTS.md of every run: no Authenticode certificate
+# is available, so the installer is UNSIGNED, and no DAW is installed on the
+# runner, so FL Studio / Ableton Live acceptance stays NOT TESTED.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/windows-vst3.yml'
+      - 'SideChain/Builds/Windows/**'
+      - 'SideChain/SideChain.jucer'
+      - 'SideChain/Source/**'
+
+permissions:
+  contents: write
+
+env:
+  PRODUCT: PumpCurve
+  VERSION: 0.4.1
+
+jobs:
+  windows-vst3:
+    name: Windows x64 VST3 + installer
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      JUCE_STOCK: ${{ runner.temp }}\juce-stock-projucer
+      JUCE_PATCHED: ${{ runner.temp }}\juce-patched
+      ARTIFACTS: ${{ runner.temp }}\artifacts
+      LOGS: ${{ runner.temp }}\logs
+      RESULTS: ${{ runner.temp }}\results
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Toolchain report
+        shell: bash
+        run: |
+          set -u
+          mkdir -p "$LOGS"
+          {
+            echo "runner:    $RUNNER_OS $RUNNER_ARCH"
+            echo "python:    $(python --version 2>&1)"
+            echo "git head:  $(git rev-parse HEAD)"
+            echo "workflow:  $GITHUB_WORKFLOW run $GITHUB_RUN_NUMBER"
+          } | tee "$LOGS/toolchain.txt"
+          msbuild -version 2>&1 | tail -3 | tee -a "$LOGS/toolchain.txt"
+
+      - name: Validate the build inputs (self-tests)
+        id: validate
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$LOGS"
+          cd SideChain/Builds/Windows
+          python tools/stage_windows_vst3.py --self-test 2>&1 | tee "$LOGS/stage_self_test.log"
+          python tools/build_windows_vst3.py --check 2>&1 | tee "$LOGS/build_check.log"
+
+      - name: Provision JUCE (patched product tree + stock Projucer tree)
+        id: juce
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$LOGS"
+          cd SideChain/Builds/Windows/juce
+          python verify_juce_tree.py --provision --dest "$JUCE_PATCHED" 2>&1 | tee "$LOGS/juce_patched.log"
+          python verify_juce_tree.py --extract-stock --dest "$JUCE_STOCK" 2>&1 | tee "$LOGS/juce_stock.log"
+
+      - name: Build Projucer 6.1.3 (stock tree)
+        id: projucer
+        shell: bash
+        run: |
+          set -uo pipefail
+          cd SideChain/Builds/Windows
+          python tools/build_windows_vst3.py --build-projucer --juce-root "$JUCE_STOCK" 2>&1 | tee "$LOGS/projucer.log"
+
+      - name: Build the PumpCurve VST3 (x64, patched JUCE)
+        id: build
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$ARTIFACTS"
+          cd SideChain/Builds/Windows
+          PJ="$(find "$JUCE_STOCK" -name Projucer.exe -type f | sort | tail -1)"
+          echo "Projucer: $PJ"
+          test -n "$PJ"
+          python tools/build_windows_vst3.py --build \
+              --juce-root "$JUCE_PATCHED" --projucer "$PJ" --out-dir "$ARTIFACTS" \
+              2>&1 | tee "$LOGS/build.log"
+
+      - name: Install Inno Setup 6
+        id: inno
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          Get-ChildItem "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" | Select-Object -ExpandProperty FullName
+
+      - name: Build the installer
+        id: installer
+        shell: cmd
+        run: |
+          set PUMPCURVE_OUTDIR=%ARTIFACTS%
+          call SideChain\Builds\Windows\installer\build_installer.cmd %VERSION% "%ARTIFACTS%\PumpCurve.vst3" > "%LOGS%\installer.log" 2>&1
+          set RC=%ERRORLEVEL%
+          type "%LOGS%\installer.log"
+          if not "%RC%"=="0" exit /b %RC%
+
+      - name: Installer lifecycle test (install / upgrade / uninstall)
+        id: lifecycle
+        shell: pwsh
+        run: |
+          $module = "$env:ARTIFACTS\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3"
+          if (-not (Test-Path $module)) { Write-Host "no staged module: skipping lifecycle test"; exit 1 }
+          $sha = (Get-FileHash -Algorithm SHA256 -Path $module).Hash
+          & "$PWD\SideChain\Builds\Windows\installer\test_install_uninstall.ps1" `
+              -Setup "$env:ARTIFACTS\PumpCurve-$($env:VERSION)-Windows-x64-Setup.exe" `
+              -ExpectedModuleSha256 $sha `
+              -StagedBundle "$env:ARTIFACTS\PumpCurve.vst3" `
+              -LogDir "$env:LOGS\installer" 2>&1 | Tee-Object "$env:LOGS\installer_lifecycle.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Installed-state verifier control (positive and negative)
+        id: verifier
+        shell: pwsh
+        run: |
+          $setup = "$env:ARTIFACTS\PumpCurve-$($env:VERSION)-Windows-x64-Setup.exe"
+          $module = "$env:ARTIFACTS\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3"
+          $sha = (Get-FileHash -Algorithm SHA256 -Path $module).Hash
+          $verify = "$PWD\SideChain\Builds\Windows\installer\verify_install.ps1"
+          $failed = 0
+
+          Write-Host "== negative control: nothing is installed =="
+          & powershell -ExecutionPolicy Bypass -File $verify | Tee-Object "$env:LOGS\verify_negative_1.log"
+          if ($LASTEXITCODE -eq 0) { Write-Host "  FAIL: verifier passed with nothing installed"; $failed++ }
+
+          Write-Host "== install, then verify with the built artifact hash =="
+          $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/LOG=$env:LOGS\install-for-verify.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Write-Host "  FAIL: install exit $($p.ExitCode)"; $failed++ }
+          & powershell -ExecutionPolicy Bypass -File $verify -Sha256 $sha | Tee-Object "$env:LOGS\verify_positive.log"
+          if ($LASTEXITCODE -ne 0) { Write-Host "  FAIL: verifier rejected a correct installation"; $failed++ }
+
+          Write-Host "== uninstall, then verify the machine is clean again =="
+          $un = "$env:CommonProgramFiles\$env:PRODUCT\unins000.exe"
+          if (Test-Path $un) {
+            $p = Start-Process -FilePath $un -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { Write-Host "  FAIL: uninstall exit $($p.ExitCode)"; $failed++ }
+          } else { Write-Host "  FAIL: no uninstaller at $un"; $failed++ }
+          & powershell -ExecutionPolicy Bypass -File $verify | Tee-Object "$env:LOGS\verify_negative_2.log"
+          if ($LASTEXITCODE -eq 0) { Write-Host "  FAIL: verifier passed after uninstall"; $failed++ }
+
+          if ($failed -ne 0) { Write-Host "VERIFIER CONTROL: FAIL ($failed)"; exit 1 }
+          Write-Host "VERIFIER CONTROL: PASS"
+
+      - name: Record signature state
+        id: signature
+        if: always()
+        shell: pwsh
+        run: |
+          $setup = "$env:ARTIFACTS\PumpCurve-$($env:VERSION)-Windows-x64-Setup.exe"
+          "module signature state (expected NotSigned: no Authenticode certificate in this pipeline)" | Tee-Object "$env:LOGS\signature.txt"
+          if (Test-Path $setup) {
+            $sig = Get-AuthenticodeSignature $setup
+            "Setup.exe: $($sig.Status) - $($sig.StatusMessage)" | Tee-Object -Append "$env:LOGS\signature.txt"
+          } else { "Setup.exe: missing" | Tee-Object -Append "$env:LOGS\signature.txt" }
+
+      - name: Collect results, hashes and an honest summary
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RESULTS\artifacts" | Out-Null
+          New-Item -ItemType Directory -Force "$env:RESULTS\logs" | Out-Null
+          if (Test-Path $env:ARTIFACTS) { Copy-Item "$env:ARTIFACTS\*" "$env:RESULTS\artifacts\" -Recurse -Force }
+          if (Test-Path $env:LOGS)      { Copy-Item "$env:LOGS\*" "$env:RESULTS\logs\" -Recurse -Force }
+
+          $lines = New-Object System.Collections.Generic.List[string]
+          $lines.Add("# PumpCurve $($env:VERSION) - Windows x64 build result")
+          $lines.Add("")
+          $lines.Add("| item | value |")
+          $lines.Add("|---|---|")
+          $lines.Add("| repository | $env:GITHUB_REPOSITORY |")
+          $lines.Add("| source revision | $env:GITHUB_SHA |")
+          $lines.Add("| workflow run | $env:GITHUB_RUN_ID (attempt $env:GITHUB_RUN_ATTEMPT) |")
+          $lines.Add("| runner | $env:RUNNER_OS $env:RUNNER_ARCH ($env:ImageOS) |")
+          $lines.Add("| signed | no - unsigned installer, no Authenticode certificate in this pipeline |")
+          $lines.Add("| step: validate | ${{ steps.validate.outcome }} |")
+          $lines.Add("| step: provision JUCE | ${{ steps.juce.outcome }} |")
+          $lines.Add("| step: Projucer | ${{ steps.projucer.outcome }} |")
+          $lines.Add("| step: build VST3 | ${{ steps.build.outcome }} |")
+          $lines.Add("| step: install Inno Setup | ${{ steps.inno.outcome }} |")
+          $lines.Add("| step: build installer | ${{ steps.installer.outcome }} |")
+          $lines.Add("| step: installer lifecycle test | ${{ steps.lifecycle.outcome }} |")
+          $lines.Add("| step: verifier control | ${{ steps.verifier.outcome }} |")
+          $lines.Add("")
+          $lines.Add("## Artifact hashes")
+          $lines.Add("")
+          $lines.Add("```")
+          Get-ChildItem "$env:RESULTS\artifacts" -File -Recurse |
+            Where-Object { $_.Name -notlike "*.vst3" -or $_.Extension -eq ".vst3" } |
+            ForEach-Object { $h = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLower()
+                             $rel = $_.FullName.Substring("$env:RESULTS\artifacts".Length + 1)
+                             $lines.Add(("{0}  {1}" -f $h, $rel)) }
+          $lines.Add("```")
+          $lines.Add("")
+          $lines.Add("## Not verified here (do not read this run as a release)")
+          $lines.Add("")
+          $lines.Add("- **Code signing: NOT SIGNED.** No Authenticode certificate is available;")
+          $lines.Add("  SmartScreen will warn until the installer is signed.")
+          $lines.Add("- **DAW acceptance: NOT TESTED.** No DAW runs on the runner, so FL Studio")
+          $lines.Add("  and Ableton Live insertion/operation are unverified.")
+          $lines.Add("- **Distribution: NOT PUBLISHED.** The website upload credential is not")
+          $lines.Add("  available, so no download route serves this build yet.")
+          ($lines -join "`n") | Set-Content "$env:RESULTS\RESULTS.md" -Encoding utf8
+          Get-Content "$env:RESULTS\RESULTS.md"
+
+      - name: Upload results as a workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pumpcurve-windows-${{ github.sha }}
+          path: ${{ runner.temp }}/results
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish results to a per-run branch
+        if: always()
+        shell: bash
+        run: |
+          set -uo pipefail
+          if [ ! -d "$RESULTS" ]; then echo "no results directory; nothing to publish"; exit 0; fi
+          BRANCH="windows-build-results/${GITHUB_SHA:0:7}-r${GITHUB_RUN_NUMBER}"
+          cd "$RESULTS"
+          git init -q .
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing to publish"; exit 0; fi
+          git commit -q -m "PumpCurve ${VERSION} Windows x64 build result for ${GITHUB_SHA} (run ${GITHUB_RUN_NUMBER})"
+          git push --quiet "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:refs/heads/${BRANCH}"
+          echo "published branch: ${BRANCH}"

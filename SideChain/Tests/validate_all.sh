@@ -140,6 +140,8 @@ fi
 
 for f in "$SCRIPT_DIR/run_all.sh" "$SCRIPT_DIR/ui_verify.sh" "$SCRIPT_DIR/validation_common.sh" \
          "$SCRIPT_DIR/validation_infra_tests.sh" "$HOST_CHECK" "$PBXPROJ" \
+         "$SCRIPT_DIR/../Builds/Windows/test_windows_tooling.sh" \
+         "$PROJECT_DIR/Builds/Windows/juce/JUCE-6.1.3-patched-modules.sha256" \
          "$PROJECT_DIR/SideChain.jucer"; do
     if [ -f "$f" ]; then
         echo "  present:       ${f#"$REPO_ROOT"/}"
@@ -475,6 +477,31 @@ if stage_allowed "customer-visible product names"; then
         record "customer-visible product names" "FAIL" "see $stage_log"
         FAILED_REQUIRED=1
         abort_to_summary "customer-visible product names"
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+banner "8c - WINDOWS BUILD INPUTS (NO WINDOWS HOST)"
+# ---------------------------------------------------------------------------
+# There is no Windows machine in this project, so this stage cannot build the
+# Windows VST3. It proves that the Windows pipeline has correct and reproducible
+# *inputs*: the patched JUCE 6.1.3 tree the runner re-creates byte for byte from
+# public inputs, the staging/identity rules that refuse a stale SideChainer
+# binary, the installer recipe's guarantees, and that the workflow still performs
+# every required step. The build itself runs on a GitHub-hosted windows-2022
+# runner (.github/workflows/windows-vst3.yml).
+if stage_allowed "windows build inputs"; then
+    log="$OUT_DIR/stage8c-windows-tooling.log"
+    windows_script="$SCRIPT_DIR/../Builds/Windows/test_windows_tooling.sh"
+    if SIDECHAIN_JUCE_ROOT="$JUCE_ROOT" "$windows_script" >"$log" 2>&1; then
+        grep -E '^ (checks|WINDOWS TOOLING)|limitation' "$log" | sed 's/^/  /'
+        record "windows build inputs" "PASS" \
+            "$(grep -oE 'checks passed: [0-9]+' "$log" | tail -1); no Windows build on this machine - the CI workflow builds it"
+    else
+        tail -25 "$log" | sed 's/^/  /'
+        record "windows build inputs" "FAIL" "see $log"
+        FAILED_REQUIRED=1
+        abort_to_summary "windows build inputs"
     fi
 fi
 

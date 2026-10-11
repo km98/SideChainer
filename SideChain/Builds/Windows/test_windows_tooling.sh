@@ -213,6 +213,25 @@ else
             bad "workflow lost: $needle"
         fi
     done
+
+    # Projucer cannot resave a project whose resource files were not checked out:
+    # the first Windows run failed on a missing Resources/music-prod-logo.png. The
+    # sparse checkout must therefore keep covering everything the .jucer needs.
+    for pattern in '/.github/' '/SideChain/Builds/Windows/' '/SideChain/JuceLibraryCode/' \
+                   '/SideChain/Resources/' '/SideChain/Source/' '/SideChain/SideChain.jucer'; do
+        if grep -qF -- "$pattern" "$WORKFLOW"; then
+            ok "workflow sparse checkout includes $pattern"
+        else
+            bad "workflow sparse checkout misses $pattern"
+        fi
+    done
+
+    referenced="$(grep -oE 'file="[^"]+"' "$PROJECT/SideChain.jucer" | sed 's/file="//; s/"$//' | head -1)"
+    if [ -n "$referenced" ] && [ -f "$PROJECT/$referenced" ]; then
+        ok "the .jucer resource exists in the repository: $referenced"
+    else
+        bad "the .jucer references a missing resource: ${referenced:-<none>}"
+    fi
 fi
 
 # ---------------------------------------------------------------------------

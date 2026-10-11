@@ -58,6 +58,8 @@ jobs:
           sparse-checkout: |
             /.github/
             /SideChain/Builds/Windows/
+            /SideChain/JuceLibraryCode/
+            /SideChain/Resources/
             /SideChain/Source/
             /SideChain/SideChain.jucer
           sparse-checkout-cone-mode: false

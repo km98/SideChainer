@@ -1,0 +1,28 @@
+runner:   Windows X64 (GitHub Actions 1000000030)
+python:   Python 3.11.9
+git head: f4a81cbf9a4b958a4fba136cb2430f43e7b000f7
+git longpaths: true
+run:      windows-vst3 #4
+temp:     /d/a/_temp
+checked out:
+.gitattributes
+.github/workflows/windows-vst3.yml
+.gitignore
+Phase1-SidechainBusTest/Builds/MacOSX/Info-AU.plist
+Phase1-SidechainBusTest/Builds/MacOSX/Info-VST3.plist
+Phase1-SidechainBusTest/Builds/MacOSX/Phase1SidechainBusTest.xcodeproj/project.pbxproj
+Phase1-SidechainBusTest/Builds/MacOSX/RecentFilesMenuTemplate.nib
+Phase1-SidechainBusTest/HostTest/AUHostTest.mm
+Phase1-SidechainBusTest/JuceLibraryCode/AppConfig.h
+Phase1-SidechainBusTest/JuceLibraryCode/JuceHeader.h
+Phase1-SidechainBusTest/JuceLibraryCode/JucePluginDefines.h
+Phase1-SidechainBusTest/JuceLibraryCode/ReadMe.txt
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_basics.cpp
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_basics.mm
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_devices.cpp
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_devices.mm
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_formats.cpp
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_formats.mm
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_plugin_client_AAX.cpp
+Phase1-SidechainBusTest/JuceLibraryCode/include_juce_audio_plugin_client_AAX.mm
+D:\a\_temp\4a291c42-33d2-4ee5-ae1b-0ea68b2896dc.sh: line 14: msbuild: command not found

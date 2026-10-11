@@ -411,11 +411,22 @@ def fix_generated_resource_identity(builds_dir):
                   % (rc.relative_to(builds_dir), EXPECT_PLUGIN_NAME))
         info[str(rc.relative_to(builds_dir))] = entry
 
-    leftover = [rel for rel, entry in info.items()
-                if "VALUE \"ProductName\"" in (builds_dir / rel).read_text(
-                    encoding="utf-8", errors="replace")
-                and 'VALUE "ProductName", "%s"' % EXPECT_PLUGIN_NAME
-                not in (builds_dir / rel).read_text(encoding="utf-8", errors="replace")]
+    # Verify by reading the values back, tolerating the padding the exporter emits
+    # (``VALUE "ProductName",    "SideChain"``): an exact-string comparison here
+    # would report a false failure and block a correct build.
+    leftover, missing = [], []
+    for rel in info:
+        text = (builds_dir / rel).read_text(encoding="utf-8", errors="replace")
+        for field in ("ProductName", "FileDescription"):
+            match = re.search(r'VALUE\s+"%s",\s*"([^"]*)"' % field, text)
+            if match is None:
+                missing.append("%s (%s)" % (field, rel))
+            elif match.group(1) != EXPECT_PLUGIN_NAME:
+                leftover.append("%s=%s (%s)" % (field, match.group(1), rel))
+    if missing:
+        return None, ("the generated resource no longer carries %s - the exporter format "
+                      "changed and the product identity cannot be guaranteed"
+                      % ", ".join(missing))
     if leftover:
         return None, "generated resource still names another product: %s" % ", ".join(leftover)
     return info, None
@@ -428,24 +439,29 @@ def self_test_rc_identity():
         builds = pathlib.Path(tmp) / "Builds" / "VisualStudio2022"
         (builds / "SideChain_VST3").mkdir(parents=True)
         rc = builds / "SideChain_VST3" / "resources.rc"
+        # The padding is copied from a real Projucer-generated resources.rc: the
+        # exporter aligns the values, so any comparison must tolerate whitespace.
         rc.write_text('BLOCK "040904b0"\nBEGIN\n'
-                      '    VALUE "CompanyName", "Music-Prod"\n'
+                      '    VALUE "CompanyName",     "Music-Prod"\n'
                       '    VALUE "FileDescription", "SideChain"\n'
-                      '    VALUE "ProductName", "SideChain"\n'
+                      '    VALUE "ProductName",     "SideChain"\n'
                       'END\n', encoding="utf-8")
         info, error = fix_generated_resource_identity(builds)
         if error:
             return fail("self-test: %s" % error)
         text = rc.read_text(encoding="utf-8")
-        if 'VALUE "ProductName", "PumpCurve"' not in text:
+        if not re.search(r'VALUE\s+"ProductName",\s*"PumpCurve"', text):
             return fail("self-test: ProductName was not rewritten")
-        if 'VALUE "FileDescription", "PumpCurve"' not in text:
+        if not re.search(r'VALUE\s+"FileDescription",\s*"PumpCurve"', text):
             return fail("self-test: FileDescription was not rewritten")
-        if 'VALUE "CompanyName", "Music-Prod"' not in text:
+        if not re.search(r'VALUE\s+"CompanyName",\s*"Music-Prod"', text):
             return fail("self-test: CompanyName must not be touched")
         backup = builds / "SideChain_VST3" / "resources.rc.pre-pumpcurve"
-        if not backup.is_file() or 'VALUE "ProductName", "SideChain"' not in backup.read_text(encoding="utf-8"):
+        if not backup.is_file():
             return fail("self-test: the original resource was not preserved for review")
+        kept = backup.read_text(encoding="utf-8")
+        if not re.search(r'VALUE\s+"ProductName",\s*"SideChain"', kept):
+            return fail("self-test: the preserved copy must be the original, not the rewrite")
         print("  ok: ProductName/FileDescription rewritten, CompanyName untouched, original kept")
         first = info[str(rc.relative_to(builds))]
         if not first["changes"] or first["before_sha256"] == first["after_sha256"]:
@@ -462,6 +478,16 @@ def self_test_rc_identity():
         if not error3:
             return fail("self-test: a missing resource file must be reported, not ignored")
         print("  ok: a missing generated resource is reported instead of silently skipped")
+
+        # A resource whose value cannot be found must be reported: that means the
+        # exporter format changed and the identity claim would be unverified.
+        other = pathlib.Path(tmp) / "other" / "SideChain_VST3"
+        other.mkdir(parents=True)
+        (other / "resources.rc").write_text('# no version block here\n', encoding="utf-8")
+        _, error4 = fix_generated_resource_identity(pathlib.Path(tmp) / "other")
+        if not error4 or "no longer carries" not in error4:
+            return fail("self-test: an unreadable resource format was not reported")
+        print("  ok: a resource without the expected fields is reported")
     print("SELF-TEST: PASS")
     return 0
 

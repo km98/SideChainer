@@ -203,24 +203,44 @@ jobs:
           $verify = "$PWD\SideChain\Builds\Windows\installer\verify_install.ps1"
           $failed = 0
 
+          # The exit code is captured the moment the child exits and printed. An
+          # earlier run piped the verifier into Tee-Object and read $LASTEXITCODE
+          # afterwards, which reported a failure although all three verifier calls
+          # had behaved exactly as intended - the log has to show the code itself.
+          function Invoke-Verifier {
+              param([string[]]$ExtraArgs, [string]$LogPath, [string]$What)
+              $output = & powershell -ExecutionPolicy Bypass -File $verify @ExtraArgs 2>&1
+              $code = $LASTEXITCODE
+              $output | Set-Content -Path $LogPath -Encoding utf8
+              $output | Write-Host
+              Write-Host "  $What -> exit code $code"
+              return $code
+          }
+
           Write-Host "== negative control: nothing is installed =="
-          & powershell -ExecutionPolicy Bypass -File $verify | Tee-Object "$logs\verify_negative_1.log"
-          if ($LASTEXITCODE -eq 0) { Write-Host "  FAIL: verifier passed with nothing installed"; $failed++ }
+          $rc = Invoke-Verifier -ExtraArgs @() -LogPath "$logs\verify_negative_1.log" `
+                               -What "verifier, nothing installed"
+          if ($rc -eq 0) { Write-Host "  FAIL: verifier passed with nothing installed"; $failed++ }
 
           Write-Host "== install, then verify against the built artifact hash =="
           $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/LOG=$logs\install-for-verify.log" -Wait -PassThru
+          Write-Host "  installer -> exit code $($p.ExitCode)"
           if ($p.ExitCode -ne 0) { Write-Host "  FAIL: install exit $($p.ExitCode)"; $failed++ }
-          & powershell -ExecutionPolicy Bypass -File $verify -Sha256 $sha | Tee-Object "$logs\verify_positive.log"
-          if ($LASTEXITCODE -ne 0) { Write-Host "  FAIL: verifier rejected a correct installation"; $failed++ }
+          $rc = Invoke-Verifier -ExtraArgs @("-Sha256", $sha) -LogPath "$logs\verify_positive.log" `
+                               -What "verifier, installed"
+          if ($rc -ne 0) { Write-Host "  FAIL: verifier rejected a correct installation"; $failed++ }
 
           Write-Host "== uninstall, then verify the machine is clean again =="
-          $un = "$env:CommonProgramFiles\$env:PRODUCT\unins000.exe"
-          if (Test-Path $un) {
+          $un = Join-Path (Join-Path $env:CommonProgramFiles $env:PRODUCT) "unins000.exe"
+          Write-Host "  uninstaller: $un (present: $(Test-Path -LiteralPath $un))"
+          if (Test-Path -LiteralPath $un) {
             $p = Start-Process -FilePath $un -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
+            Write-Host "  uninstaller -> exit code $($p.ExitCode)"
             if ($p.ExitCode -ne 0) { Write-Host "  FAIL: uninstall exit $($p.ExitCode)"; $failed++ }
           } else { Write-Host "  FAIL: no uninstaller at $un"; $failed++ }
-          & powershell -ExecutionPolicy Bypass -File $verify | Tee-Object "$logs\verify_negative_2.log"
-          if ($LASTEXITCODE -eq 0) { Write-Host "  FAIL: verifier passed after uninstall"; $failed++ }
+          $rc = Invoke-Verifier -ExtraArgs @() -LogPath "$logs\verify_negative_2.log" `
+                               -What "verifier, after uninstall"
+          if ($rc -eq 0) { Write-Host "  FAIL: verifier passed after uninstall"; $failed++ }
 
           if ($failed -ne 0) { Write-Host "VERIFIER CONTROL: FAIL ($failed)"; exit 1 }
           Write-Host "VERIFIER CONTROL: PASS"

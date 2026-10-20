@@ -1,0 +1,43 @@
+﻿2026-10-20 14:19:36.478   Log opened. (Time zone: UTC+00:00)
+2026-10-20 14:19:36.478   Setup version: Inno Setup version 6.7.1
+2026-10-20 14:19:36.478   Original Setup EXE: D:\a\_temp\artifacts\PumpCurve-0.5.0-Windows-x64-Setup.exe
+2026-10-20 14:19:36.478   Setup command line: /SL5="$501C2,2035082,893952,D:\a\_temp\artifacts\PumpCurve-0.5.0-Windows-x64-Setup.exe" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /LOG=D:\a\_temp\logs\installer\install.log
+2026-10-20 14:19:36.478   Windows version: 10.0.20348
+2026-10-20 14:19:36.478   Windows architecture: x64 (64-bit)
+2026-10-20 14:19:36.478   Machine types supported by system: x86 x64
+2026-10-20 14:19:36.478   User privileges: Administrative
+2026-10-20 14:19:36.478   Administrative install mode: Yes
+2026-10-20 14:19:36.478   Install mode root key: HKEY_LOCAL_MACHINE
+2026-10-20 14:19:36.478   64-bit install mode: Yes
+2026-10-20 14:19:36.478   RedirectionGuard status for current process: Enabled in enforcing mode
+2026-10-20 14:19:36.478   Created protected temporary directory: C:\Users\RUNNER~1\AppData\Local\Temp\is-UHJX4ANREC.tmp
+2026-10-20 14:19:37.137   Found 0 files to register with RestartManager.
+2026-10-20 14:19:37.168   Extracting temporary file: C:\Users\RUNNER~1\AppData\Local\Temp\is-UHJX4ANREC.tmp\cleanup_legacy.ps1
+2026-10-20 14:19:37.985   removed legacy bundle: C:\Program Files\Common Files\VST3\SideChain.vst3
+2026-10-20 14:19:37.985   Starting the installation process.
+2026-10-20 14:19:37.985   Directory for uninstall files: C:\Program Files\Common Files\PumpCurve
+2026-10-20 14:19:37.985   Creating directory: C:\Program Files\Common Files\PumpCurve
+2026-10-20 14:19:37.985   Creating new uninstall log: C:\Program Files\Common Files\PumpCurve\unins000.dat
+2026-10-20 14:19:38.080   -- File entry --
+2026-10-20 14:19:38.080   Dest filename: C:\Program Files\Common Files\PumpCurve\unins000.exe
+2026-10-20 14:19:38.080   Non-default bitness: 32-bit
+2026-10-20 14:19:38.221   Time stamp of our file: 2026-10-20 14:19:36.290
+2026-10-20 14:19:38.221   Installing the file.
+2026-10-20 14:19:38.221   Successfully installed the file.
+2026-10-20 14:19:38.221   -- File entry --
+2026-10-20 14:19:38.221   Dest filename: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3
+2026-10-20 14:19:38.237   Time stamp of our file: 2026-10-20 14:19:22.000
+2026-10-20 14:19:38.237   Installing the file.
+2026-10-20 14:19:38.237   Creating directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3
+2026-10-20 14:19:38.237   Creating directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents
+2026-10-20 14:19:38.237   Creating directory: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win
+2026-10-20 14:19:38.346   Successfully installed the file.
+2026-10-20 14:19:38.346   Saving uninstall information.
+2026-10-20 14:19:38.346   Creating new uninstall key: HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Uninstall\{8A1C9B4E-3D2F-4C77-9E31-1F5B7C0A2D64}_is1
+2026-10-20 14:19:38.346   Writing uninstall key values.
+2026-10-20 14:19:38.346   Detected previous non administrative install? No
+2026-10-20 14:19:38.346   Detected previous administrative 32-bit install? No
+2026-10-20 14:19:38.362   Installation process succeeded.
+2026-10-20 14:19:38.362   Need to restart Windows? No
+2026-10-20 14:19:38.362   Deinitializing Setup.
+2026-10-20 14:19:38.362   Log closed.

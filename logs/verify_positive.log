@@ -1,0 +1,15 @@
+== PumpCurve Windows VST3 verification ==
+  VST3 folder: C:\Program Files\Common Files\VST3
+  ok:   bundle present: C:\Program Files\Common Files\VST3\PumpCurve.vst3
+  ok:   module present: C:\Program Files\Common Files\VST3\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3
+  ok:   module is x64 (PE machine 0x8664)
+  module sha256: 40e0e30452dd63c3dd3955f5367329346d114d3393b759bfcf4b9176c2c39ed6
+  ok:   installed module matches the published SHA-256
+  ProductName:  PumpCurve
+  CompanyName:  Music-Prod
+  FileVersion:  0.5.0
+  ok:   version resource identifies this product
+  ok:   no legacy bundle at C:\Program Files\Common Files\VST3\SideChain.vst3
+  ok:   no legacy bundle at C:\Program Files\Common Files\VST3\SideChainer.vst3
+
+VERIFICATION PASSED

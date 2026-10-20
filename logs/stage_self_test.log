@@ -1,0 +1,51 @@
+== staging/packaging self-test (fixture) ==
+FAIL: notpe.vst3 is not a PE image
+  ok: a non-PE file is rejected
+  ok: a non-x64 module is rejected
+  ok: a module carrying a legacy product name is rejected
+  ok: a legacy binary is refused, nothing is written
+  inspecting the built module before staging:
+  module:        C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\build\SideChain.vst3\Contents\x86_64-win\SideChain.vst3
+  size:          1092 bytes
+  sha256:        a60f56cb819848a6f1b347aaa72f3c3044975d3b486407bdc561269884fa302b
+  architecture:  x64 (PE machine 0x8664)
+  class name 'PumpCurve' present:        True
+  product name 'PumpCurve' in version resource: True
+  version '0.5.0' in version resource:       True
+  no legacy product name in the version resource
+STAGED: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\artifacts\PumpCurve.vst3
+  module: Contents/x86_64-win/PumpCurve.vst3
+  module sha256: a60f56cb819848a6f1b347aaa72f3c3044975d3b486407bdc561269884fa302b
+  3 files, all byte-identical to the built bundle
+  manifest: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\artifacts/MANIFEST-staged.json
+  ok: staging renamed both the bundle and the module, bytes untouched
+  ok: staging refuses to overwrite an existing bundle
+PACKAGED: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\artifacts\PumpCurve-0.5.0-Windows-x64.zip (647 bytes)
+  sha256: 0990ee98ca868f8cd839db3e07dcadfb6d09c8a4ba50d24cdeb1564889577e3b
+VERIFIED: PumpCurve-0.5.0-Windows-x64.zip
+  3 members, entry point PumpCurve.vst3/Contents/x86_64-win/PumpCurve.vst3
+  no legacy SideChain/SideChainer bundle inside
+  ok: SHA256SUMS carries the archive hash
+  ok: packaging is deterministic (fixed archive timestamps)
+  inspecting the built module before staging:
+  module:        C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\vs-build\VST3\SideChain.vst3
+  size:          1092 bytes
+  sha256:        a60f56cb819848a6f1b347aaa72f3c3044975d3b486407bdc561269884fa302b
+  architecture:  x64 (PE machine 0x8664)
+  class name 'PumpCurve' present:        True
+  product name 'PumpCurve' in version resource: True
+  version '0.5.0' in version resource:       True
+  no legacy product name in the version resource
+STAGED: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\flat-artifacts\PumpCurve.vst3
+  module: Contents/x86_64-win/PumpCurve.vst3
+  module sha256: a60f56cb819848a6f1b347aaa72f3c3044975d3b486407bdc561269884fa302b
+  1 file(s); the module is byte-identical to the built DLL
+  manifest: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\flat-artifacts/MANIFEST-staged.json
+  ok: a flat VS build output is wrapped into PumpCurve.vst3, bytes identical
+PACKAGED: C:\Users\RUNNER~1\AppData\Local\Temp\tmpwxpvd0i4\flat-artifacts\PumpCurve-0.5.0-Windows-x64.zip (283 bytes)
+  sha256: 7fbb9833cd7a06ecdf5b337cc36d15928395ca92295a8ee37731ef7b6dac0911
+VERIFIED: PumpCurve-0.5.0-Windows-x64.zip
+  1 members, entry point PumpCurve.vst3/Contents/x86_64-win/PumpCurve.vst3
+  no legacy SideChain/SideChainer bundle inside
+  ok: a legacy flat module is refused, nothing is written
+SELF-TEST: PASS

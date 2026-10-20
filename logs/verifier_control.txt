@@ -1,0 +1,9 @@
+verifier control transcript
+  negative control (nothing installed): exit code 1 (expected non-zero)
+  installer exit code:                  0 (expected 0)
+  positive control (installed):         exit code 0 (expected 0)
+  uninstaller present:                  True
+  uninstaller exit code:                0
+  uninstaller removed itself:           True
+  negative control (after uninstall):   exit code 1 (expected non-zero)
+  failures recorded:                    0

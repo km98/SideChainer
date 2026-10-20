@@ -1,0 +1,17 @@
+{
+  "arch_dir": "x86_64-win",
+  "extras": {},
+  "files": {
+    "Contents/x86_64-win/PumpCurve.vst3": "40e0e30452dd63c3dd3955f5367329346d114d3393b759bfcf4b9176c2c39ed6"
+  },
+  "format": "VST3",
+  "layout": "flat Windows module wrapped into the VST3 bundle layout",
+  "module": "Contents/x86_64-win/PumpCurve.vst3",
+  "module_sha256": "40e0e30452dd63c3dd3955f5367329346d114d3393b759bfcf4b9176c2c39ed6",
+  "note": "module byte-identical to the built DLL; only the layout around it was created",
+  "platform": "windows-x64",
+  "product": "PumpCurve",
+  "renamed_from": "SideChain.vst3",
+  "staged_bundle": "PumpCurve.vst3",
+  "version": "0.5.0"
+}

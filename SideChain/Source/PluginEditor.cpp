@@ -1,12 +1,14 @@
 /*
-    SideChain - production editor implementation (Phase 6).
+    PumpCurve - production editor implementation (0.5.0 redesign).
 
-    Design language: dark, premium, modern, minimal. Direct JUCE drawing,
-    no image assets, system sans-serif typography.
+    Design language: graphite base, restrained mint accents, hairline rules,
+    flat controls with one shared hover/focus/pressed language (see
+    PumpCurveTheme.h). Direct JUCE drawing, no image assets besides the
+    approved Music-Prod logo, system sans-serif typography.
 
-    Control hierarchy: AMOUNT is the large primary knob; RELEASE is a
-    clearly smaller secondary knob. Both share the same custom knob
-    painting so the visual language stays consistent.
+    Control hierarchy: the curve editor is the focal point; AMOUNT, TIME and
+    RELEASE share one knob size and one baseline under it; presets sit in the
+    header; the version-mode pill and INFO sit at the header's right edge.
 */
 
 #include "PluginEditor.h"
@@ -14,17 +16,16 @@
 
 namespace
 {
-    // Shared palette (dark premium direction, pure black field).
-    constexpr uint32_t kBackground   = 0xff000000;   // solid black
-    constexpr uint32_t kTextPrimary  = 0xffe8ecf3;
-    constexpr uint32_t kTextSubtle   = 0xff6b7687;
-    constexpr uint32_t kAccent       = 0xff7fd1c0;   // mint (amount / accent)
-    constexpr uint32_t kAccentWarm   = 0xffd8b26a;   // soft gold (release)
-    constexpr uint32_t kKnobTrack    = 0xff22262e;   // reads on black
-    constexpr uint32_t kKnobBody     = 0xff1c2027;
-    constexpr uint32_t kControlBg    = 0xff15181e;   // preset selector body
-    constexpr uint32_t kControlEdge  = 0xff2c3342;   // preset selector edge
-    constexpr uint32_t kPresetText   = 0xffb8d8cf;   // soft mint text (preset name)
+    // Palette aliases (the single source of truth is sid::theme).
+    constexpr uint32_t kBackground   = sid::theme::kBase;
+    constexpr uint32_t kTextPrimary  = sid::theme::kText;
+    constexpr uint32_t kTextSubtle   = sid::theme::kTextMuted;
+    constexpr uint32_t kAccent       = sid::theme::kAccent;
+    constexpr uint32_t kKnobTrack    = sid::theme::kControlDown;
+    constexpr uint32_t kKnobBody     = sid::theme::kControl;
+    constexpr uint32_t kControlBg    = sid::theme::kControl;
+    constexpr uint32_t kControlEdge  = sid::theme::kEdge;
+    constexpr uint32_t kPresetText   = sid::theme::kText;
 }
 
 // Item-id ranges for the preset ComboBox (1-based item ids)
@@ -54,54 +55,13 @@ float ProdKnob::getArcFraction() const
 
 void ProdKnob::paint (juce::Graphics& g)
 {
-    auto area = getLocalBounds().toFloat().reduced (6.0f);
-    const float diameter = juce::jmin (area.getWidth(), area.getHeight());
-    auto knobRect = juce::Rectangle<float> (diameter, diameter).withCentre (area.getCentre());
-
-    const float arcThickness = juce::jmax (3.0f, diameter * 0.055f);
-    const float angleSpan = juce::MathConstants<float>::pi * 1.5f;
-    const float startAngle = juce::MathConstants<float>::pi * 0.75f;
-    const float fraction = getArcFraction();
-
-    // Track arc
-    juce::Path track;
-    auto arcRect = knobRect.reduced (arcThickness);
-    track.addArc (arcRect.getX(), arcRect.getY(), arcRect.getWidth(), arcRect.getHeight(),
-                  startAngle, startAngle + angleSpan, true);
-    g.setColour (juce::Colour (kKnobTrack));
-    g.strokePath (track, juce::PathStrokeType (arcThickness, juce::PathStrokeType::curved,
-                                               juce::PathStrokeType::rounded));
-
-    // Value arc (fill colour is set per-knob via rotarySliderFillColourId)
-    if (fraction > 0.001f)
-    {
-        juce::Path value;
-        value.addArc (arcRect.getX(), arcRect.getY(), arcRect.getWidth(), arcRect.getHeight(),
-                      startAngle, startAngle + angleSpan * fraction, true);
-        g.setColour (findColour (juce::Slider::rotarySliderFillColourId));
-        g.strokePath (value, juce::PathStrokeType (arcThickness, juce::PathStrokeType::curved,
-                                                   juce::PathStrokeType::rounded));
-    }
-
-    // Knob body
-    juce::DropShadow shadow (juce::Colour (0x66000000), 10, { 0, 3 });
-    juce::Path bodyPath;
-    bodyPath.addEllipse (knobRect.reduced (arcThickness * 1.9f));
-    shadow.drawForPath (g, bodyPath);
-    g.setColour (juce::Colour (kKnobBody));
-    g.fillPath (bodyPath);
-    g.setColour (juce::Colour (0xff323a4a));
-    g.strokePath (bodyPath, juce::PathStrokeType (1.0f));
-
-    // Pointer line
-    const auto centre = knobRect.getCentre();
-    const float innerR = diameter * 0.16f;
-    const float outerR = diameter * 0.30f;
-    const float angle = startAngle + angleSpan * fraction;
-    juce::Line<float> pointer (centre.getPointOnCircumference (innerR, angle),
-                               centre.getPointOnCircumference (outerR, angle));
-    g.setColour (juce::Colour (kTextPrimary));
-    g.drawLine (pointer, 2.2f);
+    // One renderer for every rotary control (see sid::theme::drawKnob): track
+    // ring, value ring with a faint bloom, a raised cap lit from above and a
+    // short pointer - the MP Gain construction in PumpCurve's mint.
+    sid::theme::drawKnob (g, getLocalBounds().toFloat().reduced (2.0f), getArcFraction(),
+                          findColour (juce::Slider::rotarySliderFillColourId),
+                          isMouseOverOrDragging() && isEnabled(),
+                          hasKeyboardFocus (false), isEnabled());
 }
 
 //==============================================================================
@@ -110,40 +70,35 @@ void ProdKnob::paint (juce::Graphics& g)
 SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProcessor& p)
     : AudioProcessorEditor (&p),
       processorRef (p),
-      authManager (std::make_unique<sid::auth::HttpAuthTransport> (
-                       "https://wfpeajmdojcjqyrsnxbk.supabase.co/functions/v1/vyre-plugin-auth"),
-                   juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
-                       .getChildFile ("Music-Prod/SideChain/auth.json").getFullPathName(),
-                   "sidechain",     // product identity (server-side allowlist key)
-                   "SideChain",     // device_name (human-readable, token record)
-                   JucePlugin_VersionString),
-      infoPage (authManager, JucePlugin_VersionString)
+      authManager (p.getAuthManager()),
+      infoPage (authManager, p.getDemoGate(), p.getUpdateChecker(), JucePlugin_VersionString)
 {
-    // Phase 7A-era persisted token (if any) is loaded outside plugin state.
-    authManager.loadPersistedToken();
-
-    // Production: let the auth thread poll for browser approval so a
-    // successful approval flips WAITING FOR APPROVAL -> SIGNED IN
-    // automatically (tests keep this off and drive polls deterministically).
-    authManager.setBackgroundPolling (true);
+    // The PROCESSOR owns the AuthManager (0.5.0): it restores the persisted
+    // token, wires the entitlement into the audio gate and enables background
+    // approval polling before any editor exists. Nothing auth-related is
+    // constructed here, so merely opening a window cannot re-trigger network
+    // work or reset the demo session.
+    lastSignedInState = (authManager.getState() == sid::auth::AuthManager::State::signedIn);
+    setLookAndFeel (&lookAndFeel);
     // PRESET selector: a compact, styled ComboBox. The closed box shows the
     // derived current identity (factory name / Default / Custom); the popup
     // lists the factory presets plus a Default entry. Applying a preset goes
     // through the processor's parameter-notification path only.
     presetBox.setJustificationType (juce::Justification::centred);
     presetBox.setEditableText (false);
-    presetBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (kControlBg));
-    presetBox.setColour (juce::ComboBox::outlineColourId,    juce::Colour (kControlEdge));
-    presetBox.setColour (juce::ComboBox::arrowColourId,      juce::Colour (kTextSubtle));
-    presetBox.setColour (juce::ComboBox::buttonColourId,     juce::Colour (kControlBg));
-    presetBox.setColour (juce::ComboBox::textColourId,       juce::Colour (kPresetText));
-    presetBox.setTooltip ("Factory presets (Amount + Release). Manual changes show Custom.");
+    presetBox.setColour (juce::ComboBox::textColourId, juce::Colour (kPresetText));
+    presetBox.setTooltip ("Factory and User Presets. Save Preset stores all sound settings; edits show Custom.");
     presetBox.onChange = [this]
     {
         const int id = presetBox.getSelectedId();
         if (id == kDefaultItemId)
         {
             processorRef.applyDefaultPreset();
+        }
+        else if (id >= 1000 && id - 1000 < userPresets.size())
+        {
+            const auto result = processorRef.loadUserPreset (userPresetLibrary, userPresets[id - 1000].file);
+            showPresetStatus (result.failed() ? result.getErrorMessage() : "Preset loaded.");
         }
         else if (id >= kPresetItemIdBase)
         {
@@ -157,6 +112,30 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     };
     buildPresetMenu();
     addAndMakeVisible (presetBox);
+    savePresetButton.onClick = [this] { showSavePresetForm(); };
+    confirmPresetButton.onClick = [this] { commitUserPreset(); };
+    cancelPresetButton.onClick = [this] { cancelSavePreset(); };
+    presetNameEditor.setTextToShowWhenEmpty ("Preset name", juce::Colour (kTextSubtle));
+    presetNameEditor.setInputRestrictions (80);
+    presetNameEditor.onReturnKey = [this] { commitUserPreset(); };
+    presetNameEditor.onEscapeKey = [this] { cancelSavePreset(); };
+    savePresetButton.setTooltip ("Save every sound setting (curve, knobs, offset, switch) as a User Preset");
+    for (auto* button : { &savePresetButton, &confirmPresetButton, &cancelPresetButton })
+        addChildComponent (button);
+    // SAVE is the one primary action of the name form.
+    sid::theme::setButtonStyle (confirmPresetButton, sid::theme::ButtonStyle::primary);
+    sid::theme::setButtonStyle (cancelPresetButton, sid::theme::ButtonStyle::quiet);
+    presetNameEditor.setFont (sid::theme::font (13.5f));
+    presetNameEditor.setIndents (8, 6);
+    addChildComponent (presetNameEditor);
+    presetStatusLabel.setFont (sid::theme::font (11.5f));
+    presetStatusLabel.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
+    presetStatusLabel.setJustificationType (juce::Justification::centred);
+    // Wrap onto a second line rather than squeezing the glyphs horizontally.
+    presetStatusLabel.setMinimumHorizontalScale (1.0f);
+    presetStatusLabel.setInterceptsMouseClicks (false, false);
+    addAndMakeVisible (presetStatusLabel);
+    savePresetButton.setVisible (true);
 
     // PRESET step arrows (previous / next factory preset). They call the
     // processor's stepPreset - the same parameter-notification path the
@@ -169,8 +148,9 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
                            left ? 9.0f : 5.0f, 12.0f);
         auto* shape = new juce::DrawablePath();
         shape->setPath (arrow);
-        shape->setFill (juce::Colour (kPresetText));
+        shape->setFill (juce::Colour (kTextSubtle));
         b.setImages (shape);
+        b.setEdgeIndent (9);
         b.setColour (juce::DrawableButton::backgroundColourId, juce::Colour (kControlBg));
         b.setColour (juce::DrawableButton::backgroundOnColourId, juce::Colour (kControlEdge));
         b.setTooltip (left ? "Previous preset" : "Next preset");
@@ -203,7 +183,8 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
         shape->setPath (arrow);
         shape->setFill (juce::Colour (kTextSubtle));
         b.setImages (shape);
-        b.setColour (juce::DrawableButton::backgroundColourId, juce::Colour (0xff111419));
+        b.setEdgeIndent (6);
+        b.setColour (juce::DrawableButton::backgroundColourId, juce::Colour (kControlBg));
         b.setColour (juce::DrawableButton::backgroundOnColourId, juce::Colour (kControlEdge));
         b.setTooltip (left ? "Duck earlier (lookahead)" : "Duck later");
     };
@@ -228,19 +209,37 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     addAndMakeVisible (offsetPrevButton);
     addAndMakeVisible (offsetNextButton);
 
-    offsetValueLabel.setFont (juce::Font (12.0f, juce::Font::bold));
+    offsetValueLabel.setFont (sid::theme::valueFont (12.5f));
     offsetValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
+    // The readout sits in a recessed well painted by the editor (paint()).
     offsetValueLabel.setJustificationType (juce::Justification::centred);
     offsetValueLabel.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (offsetValueLabel);
 
     offsetCaption.setText ("TIMING OFFSET", juce::dontSendNotification);
-    offsetCaption.setFont (juce::Font (9.0f, juce::Font::plain));
+    offsetCaption.setFont (sid::theme::captionFont (10.5f));
     offsetCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
-    offsetCaption.setJustificationType (juce::Justification::centred);
+    offsetCaption.setJustificationType (juce::Justification::centredRight);
+    offsetCaption.setTooltip ("Moves the duck earlier (lookahead) or later against the beat, 1 ms per click");
     offsetCaption.setInterceptsMouseClicks (false, false);
     addAndMakeVisible (offsetCaption);
     refreshOffsetDisplay();
+
+    // ---- TRANSPORT SWITCH (0.4.2): ACTIVE ONLY DURING PLAY/REC -----------
+    // Shares the transport row with TIMING OFFSET (left-aligned, the offset
+    // group stays centred), visually quieter than the primary knobs but
+    // unmistakably a control. Default ON comes from the parameter itself.
+    transportGateToggle.setTooltip (
+        "ON (default): PumpCurve ducks only while the DAW transport plays or records. "
+        "OFF: the ducking keeps running while the transport is stopped.");
+    transportGateToggle.setColour (juce::ToggleButton::textColourId, juce::Colour (kTextSubtle));
+    transportGateToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (kAccent));
+    transportGateToggle.setColour (juce::ToggleButton::tickDisabledColourId,
+                                   juce::Colour (kControlEdge));
+    transportGateAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
+            processorRef.getParameters(), "transportGate", transportGateToggle);
+    addAndMakeVisible (transportGateToggle);
 
     // ---- View selector (0.3.0): compact segmented SIDECHAIN | ANALYZER ---
     // Music-Prod design language: black bg, white type, mint selected.
@@ -273,32 +272,36 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     amountAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processorRef.getParameters(), "sidechainAmount", amountKnob);
 
-    amountValueLabel.setFont (juce::Font (26.0f, juce::Font::bold));
+    amountValueLabel.setFont (sid::theme::valueFont (24.0f));
     amountValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
-    amountValueLabel.setJustificationType (juce::Justification::centred);
+    amountValueLabel.setJustificationType (juce::Justification::centredLeft);
+    amountValueLabel.setBorderSize ({});
 
     amountCaption.setText ("AMOUNT", juce::dontSendNotification);
-    amountCaption.setFont (juce::Font (12.0f, juce::Font::plain));
+    amountCaption.setFont (sid::theme::captionFont (11.0f));
     amountCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
-    amountCaption.setJustificationType (juce::Justification::centred);
+    amountCaption.setJustificationType (juce::Justification::centredLeft);
+    amountCaption.setBorderSize ({});
 
     // SECONDARY control: RELEASE (envelope SHAPE; preset character)
     releaseKnob.setTooltip ("Envelope shape: plateau vs tail split (preset character)");
     releaseKnob.setDoubleClickReturnValue (true, 150.0); // reset to 150 ms default
-    releaseKnob.setColour (juce::Slider::rotarySliderFillColourId, juce::Colour (kAccentWarm));
+    releaseKnob.setColour (juce::Slider::rotarySliderFillColourId, juce::Colour (kAccent));
     addAndMakeVisible (releaseKnob);
 
     releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processorRef.getParameters(), "release", releaseKnob);
 
-    releaseValueLabel.setFont (juce::Font (19.0f, juce::Font::bold));
+    releaseValueLabel.setFont (sid::theme::valueFont (24.0f));
     releaseValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
-    releaseValueLabel.setJustificationType (juce::Justification::centred);
+    releaseValueLabel.setJustificationType (juce::Justification::centredLeft);
+    releaseValueLabel.setBorderSize ({});
 
-    releaseCaption.setText ("RELEASE (SHAPE)", juce::dontSendNotification);
-    releaseCaption.setFont (juce::Font (11.0f, juce::Font::plain));
+    releaseCaption.setText ("RELEASE", juce::dontSendNotification);
+    releaseCaption.setFont (sid::theme::captionFont (11.0f));
     releaseCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
-    releaseCaption.setJustificationType (juce::Justification::centred);
+    releaseCaption.setJustificationType (juce::Justification::centredLeft);
+    releaseCaption.setBorderSize ({});
 
 
     // DUCK LENGTH (0.3.0): total audible duck duration, INDEPENDENT of the
@@ -313,35 +316,38 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     duckLengthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processorRef.getParameters(), "duckLength", duckLengthKnob);
 
-    duckLengthValueLabel.setFont (juce::Font (19.0f, juce::Font::bold));
+    duckLengthValueLabel.setFont (sid::theme::valueFont (24.0f));
     duckLengthValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
-    duckLengthValueLabel.setJustificationType (juce::Justification::centred);
+    duckLengthValueLabel.setJustificationType (juce::Justification::centredLeft);
+    duckLengthValueLabel.setBorderSize ({});
 
     duckLengthCaption.setText ("TIME", juce::dontSendNotification);
-    duckLengthCaption.setFont (juce::Font (11.0f, juce::Font::plain));
+    duckLengthCaption.setFont (sid::theme::captionFont (11.0f));
     duckLengthCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
-    duckLengthCaption.setJustificationType (juce::Justification::centred);
+    duckLengthCaption.setJustificationType (juce::Justification::centredLeft);
+    duckLengthCaption.setBorderSize ({});
 
     smoothSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     smoothSlider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
     smoothSlider.setRange (0.0, 100.0, 0.1);
-    smoothSlider.setColour (juce::Slider::trackColourId, juce::Colour (kKnobTrack));
-    smoothSlider.setColour (juce::Slider::thumbColourId, juce::Colour (kAccent));
     smoothSlider.setTooltip ("Curve smoothness (visual only in this version)");
     smoothAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (
         processorRef.getParameters(), "smooth", smoothSlider);
-    smoothValueLabel.setFont (juce::Font (13.0f, juce::Font::bold));
+    smoothValueLabel.setFont (sid::theme::valueFont (12.5f));
     smoothValueLabel.setColour (juce::Label::textColourId, juce::Colour (kTextPrimary));
-    smoothValueLabel.setJustificationType (juce::Justification::centred);
+    smoothValueLabel.setJustificationType (juce::Justification::centredRight);
     smoothValueLabel.setInterceptsMouseClicks (false, false);
     smoothCaption.setText ("SMOOTH", juce::dontSendNotification);
-    smoothCaption.setFont (juce::Font (10.0f));
+    smoothCaption.setFont (sid::theme::captionFont (10.5f));
     smoothCaption.setColour (juce::Label::textColourId, juce::Colour (kTextSubtle));
-    smoothCaption.setJustificationType (juce::Justification::centred);
+    smoothCaption.setJustificationType (juce::Justification::centredLeft);
     smoothCaption.setInterceptsMouseClicks (false, false);
 
     graph.setCurve (processorRef.getPumpCurve(), processorRef.getCurveStateMode());
     graph.setHistoryDisplayEnabled (false); // graph is now a curve editor, never an audio-history view
+    // ...but the LIVE audio stays visible behind the curve (0.4.2): the real
+    // input and processed signal, drawn from the scope FIFO under the curve.
+    graph.setWaveformDisplayEnabled (true);
     graph.setCurveChangedCallback ([this] (const sid::curve::PumpCurve& curve)
     {
         return processorRef.setPumpCurvePoints (curve.storage().data(), curve.size());
@@ -367,8 +373,7 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     // overlapping the selector's bottom edge.
 
     // ---- Phase 8: INFO button (header) + INFO view swap ------------------
-    infoButton.setColour (juce::TextButton::buttonColourId,  juce::Colour (kControlBg));
-    infoButton.setColour (juce::TextButton::textColourOffId, juce::Colour (kTextPrimary));
+    infoButton.setTooltip ("Licence, Music-Prod+ account and updates");
     infoButton.onClick = [this] { showInfoView(); };
     addAndMakeVisible (infoButton);
 
@@ -385,6 +390,12 @@ SideChainAudioProcessorEditor::SideChainAudioProcessorEditor (SideChainAudioProc
     refreshPresetDisplay();
     lastTimerCallbackTimeMs = juce::Time::currentTimeMillis();
     startTimerHz (30);
+}
+
+SideChainAudioProcessorEditor::~SideChainAudioProcessorEditor()
+{
+    // Children still reference the theme; detach before it is destroyed.
+    setLookAndFeel (nullptr);
 }
 
 void SideChainAudioProcessorEditor::refreshRenderingAfterLifecycleChange()
@@ -417,6 +428,7 @@ void SideChainAudioProcessorEditor::refreshRenderingAfterLifecycleChange()
         presetBox.repaint();
         offsetValueLabel.repaint();
         offsetCaption.repaint();
+        transportGateToggle.repaint();
     }
 
     repaint();
@@ -430,7 +442,15 @@ void SideChainAudioProcessorEditor::moved()
 void SideChainAudioProcessorEditor::visibilityChanged()
 {
     if (isVisible())
+    {
         refreshRenderingAfterLifecycleChange();
+
+        // The window is being shown again (the host reopened the editor, or the
+        // user came back to it). Re-check the subscription so a purchase made
+        // while it was closed is reflected - debounced, so bringing the window
+        // forward repeatedly does not become a request each time.
+        authManager.refreshEntitlementsIfStale();
+    }
 }
 
 void SideChainAudioProcessorEditor::parentHierarchyChanged()
@@ -451,12 +471,15 @@ void SideChainAudioProcessorEditor::showMainView()
     infoPage.setVisible (false);
     graph.setVisible (true);
     presetBox.setVisible (true);
+    savePresetButton.setVisible (true);
+    presetStatusLabel.setVisible (true);
     presetPrevButton.setVisible (true);
     presetNextButton.setVisible (true);
     offsetPrevButton.setVisible (true);
     offsetNextButton.setVisible (true);
     offsetValueLabel.setVisible (true);
     offsetCaption.setVisible (true);
+    transportGateToggle.setVisible (true);
     sidechainViewButton.setVisible (false);
     analyzerViewButton.setVisible (false);
     amountKnob.setVisible (true);
@@ -480,13 +503,17 @@ void SideChainAudioProcessorEditor::showInfoView()
     showingInfo = true;
     infoPage.setVisible (true);
     graph.setVisible (false);
+    cancelSavePreset();
     presetBox.setVisible (false);
+    savePresetButton.setVisible (false);
+    presetStatusLabel.setVisible (false);
     presetPrevButton.setVisible (false);
     presetNextButton.setVisible (false);
     offsetPrevButton.setVisible (false);
     offsetNextButton.setVisible (false);
     offsetValueLabel.setVisible (false);
     offsetCaption.setVisible (false);
+    transportGateToggle.setVisible (false);
     sidechainViewButton.setVisible (false);
     analyzerViewButton.setVisible (false);
     amountKnob.setVisible (false);
@@ -502,6 +529,14 @@ void SideChainAudioProcessorEditor::showInfoView()
     releaseValueLabel.setVisible (false);
     releaseCaption.setVisible (false);
     infoButton.setVisible (false);
+
+    // Opening the page is one of the lifecycle points that re-checks the
+    // subscription: the customer may have bought Music-Prod+ since the last
+    // answer arrived. Debounced inside the AuthManager, so reopening the page
+    // repeatedly cannot become one request per open - and the page's own CHECK
+    // SUBSCRIPTION control can still force a check at any moment.
+    authManager.refreshEntitlementsIfStale();
+
     infoPage.refresh();
     repaint();
 }
@@ -534,7 +569,7 @@ void SideChainAudioProcessorEditor::drawMusicProdLogo (juce::Graphics& g,
     //    LUMINANCE (white pixels -> fully opaque) instead of its alpha,
     //    painting a solid rectangle. Compositing the white mask through its
     //    own alpha channel is correct on all backends.
-    const int w = 110;
+    const int w = juce::jmin (96, area.getWidth());
     const int h = juce::roundToInt (w * (float) musicProdLogo.getHeight()
                                         / (float) musicProdLogo.getWidth());
 
@@ -559,9 +594,9 @@ void SideChainAudioProcessorEditor::drawMusicProdLogo (juce::Graphics& g,
     }
 
     g.setImageResamplingQuality (juce::Graphics::highResamplingQuality);
-    g.setOpacity (0.92f);
+    g.setOpacity (0.62f);   // a signature, not a headline
     g.drawImageWithin (logoMask,
-                       area.getCentreX() - w / 2, area.getY(), w, h,
+                       area.getCentreX() - w / 2, area.getCentreY() - h / 2, w, h,
                        juce::RectanglePlacement (juce::RectanglePlacement::centred),
                        false);   // composite via the mask's own alpha channel
     g.setOpacity (1.0f);
@@ -571,12 +606,69 @@ void SideChainAudioProcessorEditor::buildPresetMenu()
 {
     presetBox.clear (juce::dontSendNotification);
 
+    presetBox.addSectionHeading ("FACTORY PRESETS");
     const auto& table = sid::presets::factoryPresets();
     for (int i = 0; i < table.size(); ++i)
         presetBox.addItem (table.getReference (i).name, kPresetItemIdBase + i);
 
     presetBox.addSeparator();
     presetBox.addItem ("Default (50% / 150 ms)", kDefaultItemId);
+    presetBox.addSeparator();
+    presetBox.addSectionHeading ("USER PRESETS");
+    userPresets = userPresetLibrary.list();
+    for (int i = 0; i < userPresets.size(); ++i)
+        presetBox.addItem (userPresets[i].name, 1000 + i);
+    lastPresetLibraryRefreshMs = juce::Time::currentTimeMillis();
+}
+
+void SideChainAudioProcessorEditor::showSavePresetForm()
+{
+    savingPreset = true;
+    presetNameEditor.setText ("", false);
+    presetStatusLabel.setText ("Type a name for the new preset. Nothing is overwritten.", juce::dontSendNotification);
+    resized();
+    presetNameEditor.grabKeyboardFocus();
+}
+
+void SideChainAudioProcessorEditor::cancelSavePreset()
+{
+    // The naming instruction and any naming error belong to the form; closing
+    // the form must not leave them behind in the toolbar.
+    if (savingPreset)
+    {
+        presetStatusLabel.setText ({}, juce::dontSendNotification);
+        presetStatusLabel.setVisible (false);
+    }
+    savingPreset = false;
+    presetNameEditor.setVisible (false);
+    confirmPresetButton.setVisible (false);
+    cancelPresetButton.setVisible (false);
+    presetBox.setVisible (! showingInfo);
+    presetPrevButton.setVisible (! showingInfo);
+    presetNextButton.setVisible (! showingInfo);
+    savePresetButton.setVisible (! showingInfo);
+}
+
+void SideChainAudioProcessorEditor::commitUserPreset()
+{
+    juce::File file;
+    const auto result = processorRef.saveUserPreset (userPresetLibrary, presetNameEditor.getText(), file);
+    if (result.failed())
+    {
+        presetStatusLabel.setText (result.getErrorMessage(), juce::dontSendNotification);
+        return; // keep the name form open, with an actionable error
+    }
+    cancelSavePreset();
+    buildPresetMenu();
+    refreshPresetDisplay();
+    showPresetStatus ("Preset saved.");
+}
+
+void SideChainAudioProcessorEditor::showPresetStatus (const juce::String& text)
+{
+    presetStatusLabel.setText (text, juce::dontSendNotification);
+    presetStatusLabel.setVisible (! showingInfo && text.isNotEmpty());
+    presetStatusShownMs = juce::Time::currentTimeMillis();
 }
 
 void SideChainAudioProcessorEditor::refreshOffsetDisplay()
@@ -596,6 +688,16 @@ void SideChainAudioProcessorEditor::refreshPresetDisplay()
     // getCurrentPresetDisplayName). When it is a factory preset we select
     // the matching item so the popup arrow/checkmark behaves naturally;
     // for Default/Custom we select NOTHING and just show the text.
+    const auto userName = processorRef.getCurrentUserPresetName();
+    if (userName.isNotEmpty())
+    {
+        for (int i = 0; i < userPresets.size(); ++i)
+            if (userPresets[i].name == userName)
+            {
+                presetBox.setSelectedId (1000 + i, juce::dontSendNotification);
+                return;
+            }
+    }
     const juce::String name = processorRef.getCurrentPresetDisplayName();
 
     const auto& table = sid::presets::factoryPresets();
@@ -630,8 +732,52 @@ void SideChainAudioProcessorEditor::timerCallback()
         refreshRenderingAfterLifecycleChange();
     lastTimerCallbackTimeMs = nowMs;
 
+    // Entitlement follow-up (0.5.0): signing in is only useful if the
+    // subscription answer is actually fetched - the Music-Prod+ line and the
+    // full-version gate both depend on it. (Previously this refresh was never
+    // triggered in production, so `subscribed` stayed false forever and a
+    // subscriber would never have been recognised.) The request is
+    // asynchronous; the audio thread never waits for it.
+    const bool signedInNow = (authManager.getState() == sid::auth::AuthManager::State::signedIn);
+    if (signedInNow && ! lastSignedInState)
+        authManager.refreshEntitlements();
+    lastSignedInState = signedInNow;
+
+    // Version check (Plugin Versions): the PROCESSOR owns the checker and its
+    // six-hour interval; this only lets a check become due. The request runs on
+    // the checker's own thread, so an unreachable or slow server can never
+    // delay this timer, a repaint, or anything on the audio thread.
+    processorRef.getUpdateChecker().refreshIfDue();
+
+    // Header version-mode readout: repaint only when the text changes (the
+    // demo countdown ticks once a second, not 30 times a second).
+    const auto statusNow = demoStatusText();
+    if (statusNow != lastDemoStatusText)
+    {
+        lastDemoStatusText = statusNow;
+        repaint (statusPillBounds.expanded (24, 2));
+    }
+    // Message-thread directory scan only; refresh other AU/VST3 instances'
+    // saves without any audio-thread file access or a 30 Hz disk poll.
+    if (! savingPreset && ! presetBox.isPopupActive() && nowMs - lastPresetLibraryRefreshMs > 3000)
+        buildPresetMenu();
+
+    // Preset outcomes are transient; the naming instruction stays while the
+    // form is open.
+    if (! savingPreset && presetStatusLabel.getText().isNotEmpty()
+        && nowMs - presetStatusShownMs > kPresetStatusHoldMs)
+    {
+        presetStatusLabel.setText ({}, juce::dontSendNotification);
+        presetStatusLabel.setVisible (false);
+    }
+
     // Drain real DSP frames into the graph history (lock-free).
     graph.consumeFrames (processorRef.graphFifo);
+
+    // ...and the live waveform scope, which paints BEHIND the curve. The
+    // message-thread clock lets the layer notice a stalled audio producer and
+    // fall back to its no-signal state instead of showing a frozen trace.
+    graph.consumeWaveformFifo (processorRef.waveformFifo, juce::Time::currentTimeMillis());
 
     // Keep the no-signal ducking preview in sync with the LIVE parameter
     // values (covers presets, host automation, undo and manual edits).
@@ -672,138 +818,122 @@ void SideChainAudioProcessorEditor::timerCallback()
 
 void SideChainAudioProcessorEditor::resized()
 {
-    auto area = getLocalBounds().reduced (14);
+    // One grid for the whole editor: 20 px side margins, every row aligned to
+    // the curve well's edges, controls on a 30 px cap height.
+    constexpr int margin = 20;
+    const int width = getWidth();
+    auto area = getLocalBounds().withTrimmedLeft (margin).withTrimmedRight (margin);
 
-    // Header
-    auto header = area.removeFromTop (34);
-    header.removeFromBottom (6);
-    // (header text drawn in paint(); keep the space)
+    // INFO page covers the editor when shown.
+    infoPage.setBounds (getLocalBounds());
 
-    // INFO button (header, right edge); paint() keeps header text clear of it.
-    infoButtonBounds = juce::Rectangle<int> (getWidth() - 14 - 54, 9, 54, 24);
+    // ---- header: wordmark | presets | mode status + INFO ------------------
+    auto header = area.removeFromTop (headerHeight);
+    const int capH = 30;
+    const int rowY = (headerHeight - capH) / 2;
+    infoButtonBounds = juce::Rectangle<int> (width - margin - 58, rowY, 58, capH);
     infoButton.setBounds (infoButtonBounds);
+    // Mode status: a dot + words, right-aligned against INFO (no pill box).
+    statusPillBounds = juce::Rectangle<int> (infoButtonBounds.getX() - 14 - 104, rowY, 104, capH);
 
-    // View selector (0.3.0): compact segmented [SIDECHAIN | ANALYZER] in
-    // the header (title area), just left of the INFO button.
+    // View selector (0.3.0) is retired from the UI but keeps valid bounds.
     {
-        const int segW = 86, segH = 18;
-        auto seg = juce::Rectangle<int> (segW * 2, segH)
-                       .withRightX (infoButtonBounds.getX() - 10)
-                       .withY (infoButtonBounds.getY() + 3);
-        sidechainViewButton.setBounds (seg.removeFromLeft (segW));
+        auto seg = juce::Rectangle<int> (172, 18).withRightX (statusPillBounds.getX() - 10)
+                                                 .withY (rowY + 6);
+        sidechainViewButton.setBounds (seg.removeFromLeft (86));
         analyzerViewButton.setBounds (seg);
     }
 
-    // INFO page covers the editor when shown (Phase 9 defect fix: without a
-    // bounds assignment the page had zero size even when made visible).
-    infoPage.setBounds (getLocalBounds());
+    // Presets: [<][ selector ][>]  [SAVE PRESET], centred on the editor.
+    const int arrowSize = 26, selectorWidth = 214, saveWidth = 104, gap = 2;
+    const int groupWidth = arrowSize + gap + selectorWidth + gap + arrowSize + 12 + saveWidth;
+    auto group = juce::Rectangle<int> (groupWidth, capH)
+                     .withCentre ({ width / 2 - 6, header.getCentreY() });
+    presetPrevButton.setBounds (group.removeFromLeft (arrowSize));
+    group.removeFromLeft (gap);
+    presetBox.setBounds (group.removeFromLeft (selectorWidth));
+    group.removeFromLeft (gap);
+    presetNextButton.setBounds (group.removeFromLeft (arrowSize));
+    group.removeFromLeft (12);
+    savePresetButton.setBounds (group.removeFromLeft (saveWidth));
 
-    // Preset strip: [ prev ] [ selector ] [ next ], centred; the PRESET
-    // caption sits clearly BELOW the group with real spacing (no overlap).
-    auto presetStrip = area.removeFromTop (30);
-    const int arrowSize = 22;
-    const int selectorWidth = 210;
-    const int groupWidth = arrowSize + 5 + selectorWidth + 5 + arrowSize;
-    auto groupBounds = juce::Rectangle<int> (groupWidth, 24)
-                            .withCentre (presetStrip.getCentre());
-    presetPrevButton.setBounds (groupBounds.removeFromLeft (arrowSize)
-                                    .withSizeKeepingCentre (arrowSize, 22));
-    groupBounds.removeFromLeft (5);
-    presetBox.setBounds (groupBounds.removeFromLeft (selectorWidth));
-    groupBounds.removeFromLeft (5);
-    presetNextButton.setBounds (groupBounds.removeFromLeft (arrowSize)
-                                    .withSizeKeepingCentre (arrowSize, 22));
-    presetCaptionBounds = juce::Rectangle<int> (groupBounds.getX() - selectorWidth / 2 - 2,
-                                                presetBox.getBottom() + 4,
-                                                selectorWidth + 4, 12);
-    area.removeFromTop (18); // room for the caption below the selector
+    // The name form replaces the preset group in place: same row, same height.
+    {
+        auto form = juce::Rectangle<int> (232 + 8 + 70 + 6 + 76, capH)
+                        .withCentre ({ width / 2 - 6, header.getCentreY() });
+        presetNameEditor.setBounds (form.removeFromLeft (232));
+        form.removeFromLeft (8);
+        confirmPresetButton.setBounds (form.removeFromLeft (70));
+        form.removeFromLeft (6);
+        cancelPresetButton.setBounds (form.removeFromLeft (76));
+    }
+    presetBox.setVisible (! showingInfo && ! savingPreset);
+    presetPrevButton.setVisible (! showingInfo && ! savingPreset);
+    presetNextButton.setVisible (! showingInfo && ! savingPreset);
+    savePresetButton.setVisible (! showingInfo && ! savingPreset);
+    presetNameEditor.setVisible (! showingInfo && savingPreset);
+    confirmPresetButton.setVisible (! showingInfo && savingPreset);
+    cancelPresetButton.setVisible (! showingInfo && savingPreset);
 
-    // SIDECHAIN OFFSET row (0.3.0): [◀][ 0 ms ][▶], smaller + dimmer than
-    // the preset group so the two navigation rows cannot be confused.
-    auto offsetStrip = area.removeFromTop (20);
-    const int offBtn = 18;
-    const int offLabelW = 64;
-    const int offGroupW = offBtn + 4 + offLabelW + 4 + offBtn;
-    auto offBounds = juce::Rectangle<int> (offGroupW, 18)
-                         .withCentre (offsetStrip.getCentre());
-    offsetPrevButton.setBounds (offBounds.removeFromLeft (offBtn)
-                                    .withSizeKeepingCentre (offBtn, 16));
-    offBounds.removeFromLeft (4);
-    offsetValueLabel.setBounds (offBounds.removeFromLeft (offLabelW));
-    offBounds.removeFromLeft (4);
-    offsetNextButton.setBounds (offBounds.removeFromLeft (offBtn)
-                                    .withSizeKeepingCentre (offBtn, 16));
-    offsetCaption.setBounds (juce::Rectangle<int> (offGroupW + 40, 12)
-                                 .withCentre (offsetStrip.getCentre())
-                                 .withY (offsetValueLabel.getBottom() + 1));
-    area.removeFromTop (12); // room for the offset caption
+    // ---- transport row: switch (left) | preset status (centre) | offset ---
+    area.removeFromTop (10);
+    auto transportRow = area.removeFromTop (26);
+    transportGateToggle.setBounds (transportRow.getX(), transportRow.getY() + 2, 262, 22);
+    {
+        auto offsetGroup = transportRow.removeFromRight (22 + 2 + 64 + 2 + 22);
+        offsetPrevButton.setBounds (offsetGroup.removeFromLeft (22).withSizeKeepingCentre (22, 24));
+        offsetGroup.removeFromLeft (2);
+        offsetValueLabel.setBounds (offsetGroup.removeFromLeft (64).withSizeKeepingCentre (64, 24));
+        offsetGroup.removeFromLeft (2);
+        offsetNextButton.setBounds (offsetGroup.removeFromLeft (22).withSizeKeepingCentre (22, 24));
+        transportRow.removeFromRight (10);
+        offsetCaption.setBounds (transportRow.removeFromRight (110));
+    }
+    presetStatusLabel.setBounds (juce::Rectangle<int> (232, 28)
+                                     .withCentre ({ width / 2, transportRow.getCentreY() }));
+    presetStatusLabel.setVisible (! showingInfo && (savingPreset || presetStatusLabel.getText().isNotEmpty()));
 
-    // ---- Bottom reservation: logo strip occupies one 28 px band.
-    auto bottomBand = area.removeFromBottom (28);
-    logoArea = juce::Rectangle<int> (220, 26).withCentre (bottomBand.getCentre());
+    // ---- footer: Music-Prod signature -------------------------------------
+    auto footer = area.removeFromBottom (32);
+    logoArea = juce::Rectangle<int> (120, 28).withCentre ({ width / 2, footer.getCentreY() });
 
-    // ---- Legacy control row remains below the graph; TIME keeps the
-    // existing Duck Length control/automation identity.
-    // NOTE (knob-invisibility defect fix): knob rects MUST be constructed
-    // directly at their target position (x, y, w, h). The previous code
-    // built them at (0,0) and called withTop(y), which keeps the BOTTOM edge
-    // and collapses the height to 0 - knobs became invisible while labels
-    // (explicit heights) stayed visible.
-    auto controlArea = area.removeFromBottom (160);
-    controlArea.removeFromTop (6);
-    const int captionH = 16, valueH = 22;
-    const int knobMax = controlArea.getHeight() - valueH - captionH - 4;
+    // ---- sound controls: three equal knob groups on one baseline ----------
+    // NOTE (knob-invisibility defect fix): knob rects are constructed directly
+    // at their target position (x, y, w, h), never via withTop() on a (0,0)
+    // rect, which keeps the bottom edge and collapses the height to 0.
+    auto deck = area.removeFromBottom (96);
+    deckRuleY = deck.getY() - 6;
+    {
+        constexpr int knobSize = 86, textGap = 14, textWidth = 110;
+        constexpr int groupW = knobSize + textGap + textWidth;
+        const int columnW = deck.getWidth() / 3;
+        const int knobY = deck.getY() + (deck.getHeight() - knobSize) / 2;
 
-    const int amountSize  = juce::jmin (96, knobMax);
-    const int midSize     = juce::jmin (76, knobMax - 4);
-    const int releaseSize = juce::jmin (64, knobMax - 10);
+        auto placeGroup = [&] (int column, ProdKnob& knob, juce::Label& caption, juce::Label& value)
+        {
+            const int x = deck.getX() + column * columnW + (columnW - groupW) / 2;
+            knob.setBounds (x, knobY, knobSize, knobSize);
+            const int textX = x + knobSize + textGap;
+            const int textY = knobY + knobSize / 2 - 24;
+            caption.setBounds (textX, textY, textWidth, 16);
+            value.setBounds (textX, textY + 18, textWidth, 30);
+        };
+        placeGroup (0, amountKnob, amountCaption, amountValueLabel);
+        placeGroup (1, duckLengthKnob, duckLengthCaption, duckLengthValueLabel);
+        placeGroup (2, releaseKnob, releaseCaption, releaseValueLabel);
+        duckLengthCaption.setText ("TIME", juce::dontSendNotification);
+    }
+    area.removeFromBottom (10);
 
-    const int centreX = controlArea.getCentreX();
-    const juce::Rectangle<int> amountBounds (centreX - 170 - amountSize / 2,
-                                             controlArea.getY() + 2,
-                                             amountSize, amountSize);
-    const juce::Rectangle<int> duckLenBounds (centreX - midSize / 2,
-                                              controlArea.getY() + 10,
-                                              midSize, midSize);
-    const juce::Rectangle<int> releaseBounds (centreX + 170 - releaseSize / 2,
-                                              controlArea.getY() + 16,
-                                              releaseSize, releaseSize);
+    // ---- SMOOTH: a property of the curve, so it sits directly under it ----
+    auto smoothRow = area.removeFromBottom (22);
+    smoothCaption.setBounds (smoothRow.removeFromLeft (70));
+    smoothValueLabel.setBounds (smoothRow.removeFromRight (48));
+    smoothSlider.setBounds (smoothRow.reduced (8, 0));
+    area.removeFromBottom (8);
 
-    amountKnob.setBounds (amountBounds);
-    duckLengthKnob.setBounds (duckLenBounds);
-    releaseKnob.setBounds (releaseBounds);
-
-    // Value labels sized knob+40 (centred): wide enough for the text, but
-    // narrow enough that adjacent labels can never collide.
-    amountValueLabel.setBounds (amountBounds.getX() - 40,
-                                amountBounds.getBottom() + 2,
-                                amountBounds.getWidth() + 40, valueH);
-    amountCaption.setBounds (amountBounds.getX() - 60,
-                             amountValueLabel.getBottom(),
-                             amountBounds.getWidth() + 80, captionH);
-
-    duckLengthValueLabel.setBounds (duckLenBounds.getX() - 40,
-                                    duckLenBounds.getBottom() + 2,
-                                    duckLenBounds.getWidth() + 40, valueH);
-    duckLengthCaption.setBounds (duckLenBounds.getX() - 40,
-                                 duckLengthValueLabel.getBottom(),
-                                 duckLenBounds.getWidth() + 40, captionH);
-    duckLengthCaption.setText ("TIME", juce::dontSendNotification);
-
-    releaseValueLabel.setBounds (releaseBounds.getX() - 40,
-                                 releaseBounds.getBottom() + 2,
-                                 releaseBounds.getWidth() + 40, valueH);
-    releaseCaption.setBounds (releaseBounds.getX() - 40,
-                              releaseValueLabel.getBottom(),
-                              releaseBounds.getWidth() + 40, captionH);
-
-    auto smoothRow = area.removeFromBottom (28);
-    smoothCaption.setText ("SMOOTH", juce::dontSendNotification);
-    smoothCaption.setBounds (smoothRow.removeFromLeft (72));
-    smoothValueLabel.setBounds (smoothRow.removeFromRight (44));
-    smoothSlider.setBounds (smoothRow.reduced (4, 7));
-
-    // Graph: everything above the controls is the dominant interactive area.
+    // ---- curve editor: everything that is left is the focal point ---------
+    area.removeFromTop (8);
     graph.setBounds (area);
     graph.toFront (false);
 }
@@ -822,30 +952,57 @@ void SideChainAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     drawMusicProdLogo (g, logoArea);
 }
 
+juce::String SideChainAudioProcessorEditor::demoStatusText() const
+{
+    const auto& gate = processorRef.getDemoGate();
+
+    if (gate.isFullVersion())
+        return "FULL VERSION";
+
+    if (gate.expired())
+        return "DEMO EXPIRED";
+
+    return "DEMO " + sid::license::formatClock (gate.remainingSeconds());
+}
+
 void SideChainAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    g.fillAll (juce::Colour (kBackground));
+    // The field: one warm-graphite gradient lit from the top (the INFO page
+    // paints the same field over this when it is shown).
+    sid::theme::fillField (g, getLocalBounds());
 
-    // Header: PumpCurve wordmark (left) - INFO button occupies the right.
     if (showingInfo)
-        return; // the INFO page paints its own branding over the base
+        return;
+
+    // The one hairline: header above, instrument below.
+    g.setColour (juce::Colour (sid::theme::kSeparator));
+    g.fillRect (0, headerHeight - 1, getWidth(), 1);
 
     sid::branding::drawWordmark (g,
-                                 juce::Rectangle<float> (14.0f, 8.0f, 220.0f, 34.0f),
-                                 21.0f,
+                                 juce::Rectangle<float> (20.0f, 9.0f, 170.0f, 36.0f),
+                                 20.0f,
                                  juce::Colour (kTextPrimary),
                                  juce::Colour (kAccent));
 
-    // Panel edge around the graph
-    g.setColour (juce::Colour (kControlEdge));
-    g.drawRect (graph.getBounds(), 1);
-
-    // PRESET caption, clearly BELOW the selector with real spacing (was a
-    // 5px-high label overlapping the selector's bottom edge).
-    if (presetBox.isVisible())
+    // Version mode: a dot and the words, right-aligned against INFO. Quiet in
+    // the demo, mint when unlocked, amber when the session has ended.
     {
-        g.setFont (juce::Font (10.0f));
-        g.setColour (juce::Colour (kTextSubtle));
-        g.drawText ("PRESET", presetCaptionBounds, juce::Justification::centred);
+        const auto& gate = processorRef.getDemoGate();
+        const auto tone = gate.isFullVersion() ? sid::theme::Tone::good
+                        : gate.expired()       ? sid::theme::Tone::warn
+                                               : sid::theme::Tone::muted;
+        const auto text = demoStatusText();
+        const auto f = sid::theme::captionFont (10.5f);
+        const float textW = f.getStringWidthFloat (text) + 2.0f;
+        auto r = statusPillBounds.toFloat();
+        const float dotX = r.getRight() - textW - 12.0f;
+        sid::theme::drawStatusDot (g, { dotX, r.getCentreY() }, tone, 6.0f);
+        g.setFont (f);
+        g.setColour (sid::theme::toneColour (tone == sid::theme::Tone::muted ? sid::theme::Tone::neutral
+                                                                              : tone));
+        g.drawText (text, r.withLeft (r.getRight() - textW), juce::Justification::centredRight, false);
     }
+
+    // Recessed well behind the timing-offset readout.
+    sid::theme::drawWell (g, offsetValueLabel.getBounds().toFloat(), 4.0f);
 }

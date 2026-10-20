@@ -1,6 +1,6 @@
 {
   "_about": [
-    "Host acceptance status for PumpCurve 0.4.1. This is the only place DAW status",
+    "Host acceptance status for PumpCurve 0.4.2. This is the only place DAW status",
     "is stated, and release_gate.py refuses a 'verified' or 'discovery_verified'",
     "claim whose evidence artifact does not exist (it hashes what it finds).",
     "'discovery_verified' means the host lists the plug-in; it is NOT insertion or",
@@ -14,9 +14,9 @@
     "evidence": "PHASEG-HOST-TEST-REPORT-RUN12-20261010.md"
   },
   "fl_studio": {
-    "status": "discovery_verified",
-    "note": "FL Studio's own plug-in database records ps_name=PumpCurve for the renamed bundle (before the rename it recorded SideChain for the same binary). Loading the plug-in into a channel was not performed.",
-    "evidence": "run12-20261010/logs/fl-db-rebuilt"
+    "status": "not_tested",
+    "note": "The earlier discovery evidence (run12-20261010/logs/fl-db-rebuilt) was on the external volume that is no longer attached and cannot be re-hashed, so the discovery claim is withdrawn until FL Studio is tested again with the current build. FL Studio 2026 (26.1.7.5419) is installed on the test Mac.",
+    "evidence": ""
   },
   "ableton_live": {
     "status": "not_tested",

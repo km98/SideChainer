@@ -13,9 +13,19 @@
           gain reduction (duck fill + ticks) and output over a rolling
           time window. Preserved unchanged.
 
-    All data comes from the audio thread via the GraphFrameFifo; nothing
-    is synthesised in the GUI (the preview is an explicit, labelled
-    parameter visualization, not fake measurement data).
+    LIVE WAVEFORM LAYER (0.4.2, default ON): inside the SAME curve plot,
+    behind the PumpCurve curve and its control points, the component draws the
+    real incoming and processed signal as min/max envelopes from the
+    WaveformFifo (sid::scope). The incoming trace is cool slate, the processed
+    output is mint; the curve, its points and the UNITY/DUCK labels are painted
+    afterwards and therefore stay on top. When nothing is flowing (silence, or
+    a stalled producer) the layer degrades to a quiet centre line labelled
+    NO SIGNAL - never an invented animation.
+
+    All data comes from the audio thread via the GraphFrameFifo (envelope
+    history) and the WaveformFifo (scope); nothing is synthesised in the GUI
+    (the preview is an explicit, labelled parameter visualization, not fake
+    measurement data).
 */
 
 #pragma once
@@ -23,6 +33,7 @@
 #include <JuceHeader.h>
 #include "GraphData.h"
 #include "PumpCurve.h"
+#include "WaveformData.h"
 
 //==============================================================================
 class GraphComponent : public juce::Component
@@ -39,6 +50,8 @@ public:
     void mouseUp (const juce::MouseEvent&) override;
     void mouseDoubleClick (const juce::MouseEvent&) override;
     bool keyPressed (const juce::KeyPress&) override;
+    void focusGained (FocusChangeType) override { repaint(); }
+    void focusLost (FocusChangeType) override { repaint(); }
 
     using CurveChanged = std::function<bool (const sid::curve::PumpCurve&)>;
     void setCurve (const sid::curve::PumpCurve& curve,
@@ -61,6 +74,31 @@ public:
 
     // Called by the editor timer: drains new frames into the history.
     void consumeFrames (sid::graph::GraphFrameFifo& fifo);
+
+    // Called by the editor timer: drains new scope frames into the waveform
+    // history. nowMs is the caller's message-thread clock and is used only to
+    // detect a stalled audio producer.
+    void consumeWaveformFifo (sid::scope::WaveformFifo& fifo, juce::int64 nowMs);
+
+    // Live waveform layer (behind the curve). Display-only; never touches the
+    // FIFO, the history or the DSP when toggled.
+    void setWaveformDisplayEnabled (bool enabled) noexcept
+    {
+        if (enabled != waveformDisplayEnabled_)
+        {
+            waveformDisplayEnabled_ = enabled;
+            repaint();
+        }
+    }
+    bool isWaveformDisplayEnabled() const noexcept { return waveformDisplayEnabled_; }
+
+    // True when the scope should draw measured audio (live producer AND
+    // audible content) rather than the no-signal fallback.
+    bool hasDisplayableWaveform() const noexcept
+    {
+        return waveformDisplayEnabled_
+            && waveformHistory_.hasDisplayableSignal (waveformNowMs_);
+    }
 
     // Clears history to silence (used on start / reset).
     void resetHistory();
@@ -85,6 +123,11 @@ public:
 
 #if defined (SIDECHAIN_HEADLESS_TEST)
     // Test-only accessors (headless UI tests assert history purity).
+    const sid::scope::WaveformHistory& waveformHistoryForTest() const noexcept
+    {
+        return waveformHistory_;
+    }
+    void setWaveformNowForTest (juce::int64 nowMs) noexcept { waveformNowMs_ = nowMs; }
     void pushFrameForTest (const sid::graph::GraphFrame& f) { pushFrame (f); }
     int  writePosForTest() const noexcept { return writePos_; }
     float reductionAtForTest (int i) const
@@ -96,6 +139,8 @@ public:
 
 private:
     void pushFrame (const sid::graph::GraphFrame& f);
+    void paintWaveform (juce::Graphics&, juce::Rectangle<float> plot);
+    void paintLegend (juce::Graphics&, juce::Rectangle<int> area);
     juce::Rectangle<float> curvePlotBounds() const noexcept;
     juce::Point<float> pointToPosition (const sid::curve::Point&) const noexcept;
     juce::Point<double> positionToNormalised (juce::Point<float>) const noexcept;
@@ -120,6 +165,11 @@ private:
     // ---- view mode (default SIDECHAIN) -----------------------------------
     ViewMode viewMode_ = ViewMode::sidechain;
     bool historyDisplayEnabled_ = true;
+
+    // ---- live waveform layer (0.4.2) ------------------------------------
+    sid::scope::WaveformHistory waveformHistory_;
+    bool waveformDisplayEnabled_ = true;
+    juce::int64 waveformNowMs_ = 0;
 
     // ---- no-signal preview (see setPreviewParams) ------------------------
     float previewAmountPercent_ = 50.0f;

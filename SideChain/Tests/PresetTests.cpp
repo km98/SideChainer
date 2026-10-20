@@ -424,9 +424,9 @@ int main()
             juce::MemoryBlock mb;
             proc.getStateInformation (mb);
             auto tree = juce::ValueTree::readFromData (mb.getData(), mb.getSize());
-            check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 6
+            check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 7
                        && tree.getChildWithName ("PUMPCURVE").isValid(),
-                   "stateVersion = 6 with default PUMPCURVE subtree");
+                   "stateVersion = current schema (7) with default PUMPCURVE subtree");
         }
     }
 

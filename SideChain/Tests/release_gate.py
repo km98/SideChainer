@@ -43,7 +43,7 @@ import urllib.parse
 import urllib.request
 
 PRODUCT = "PumpCurve"
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 BUNDLE_ID = "com.musicprod.sidechain"
 AU_TUPLE = ("aufx", "SdCh", "Musc")
 TEAM_ID = "3A4R5EKM7V"
@@ -406,7 +406,17 @@ def notarization_next_step(pkg, missing):
             "gate" % ("; ".join(missing), pkg))
 
 
-def check_windows(gate, windows_dir):
+def check_windows(gate, windows_dir, explicit=False):
+    """Judge the Windows artifact, keeping "stale" apart from "broken".
+
+    A discovered artifact from an older candidate (the evidence root still holds
+    run13's 0.4.1 build) is NOT evidence about this version: reporting it as an
+    identity FAIL made a candidate look broken when in truth no Windows build
+    existed for it yet. The build's own RUN-MANIFEST.json names its version, so an
+    implicit discovery of a different version is reported NOT_TESTED. An
+    explicitly supplied --windows-dir is different: the caller asked for that
+    directory to be judged, so a version mismatch there stays a FAIL.
+    """
     if not windows_dir:
         return gate.add("Windows artifacts", BLOCKED,
                         "no Windows build fetched yet; the pipeline is "
@@ -421,6 +431,19 @@ def check_windows(gate, windows_dir):
     if not module.is_file():
         return gate.add("Windows artifacts", BLOCKED,
                         "no staged %s.vst3 module under %s" % (PRODUCT, windows_dir))
+    if run_manifest.is_file() and not explicit:
+        try:
+            recorded = json.loads(run_manifest.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            recorded = {}
+        recorded_version = recorded.get("version")
+        if recorded_version and str(recorded_version) != VERSION:
+            return gate.add(
+                "Windows artifacts", NOT_TESTED,
+                "the staged Windows build found is %s (recorded by its RUN-MANIFEST), "
+                "not this candidate's %s; no Windows build exists for %s yet"
+                % (recorded_version, VERSION, VERSION),
+                claim=str(run_manifest))
     tool = PROJECT / "Builds" / "Windows" / "tools" / "stage_windows_vst3.py"
     rc, out = sh([sys.executable, tool, "--inspect-module", module, "--version", VERSION])
     if rc != 0:
@@ -461,10 +484,13 @@ def http_probe(url, timeout=30):
     opener = urllib.request.build_opener(NoRedirect)
     req = urllib.request.Request(url, headers={"User-Agent": "pumpcurve-release-gate"})
     try:
+        # The headers stay an HTTPMessage: header names are case-insensitive, and
+        # an HTTP/2 server (Hostinger's CDN) sends them in lower case, which a
+        # plain dict would turn into a "redirect without a Location header".
         with opener.open(req, timeout=timeout) as resp:
-            return resp.status, dict(resp.headers), resp.read(2048)
+            return resp.status, resp.headers, resp.read(2048)
     except urllib.error.HTTPError as exc:
-        return exc.code, dict(exc.headers or {}), b""
+        return exc.code, (exc.headers if exc.headers is not None else {}), b""
     except Exception as exc:                                  # noqa: BLE001
         return None, {"error": str(exc)}, b""
 
@@ -682,7 +708,7 @@ def main():
     check_macos_bundles(gate, staged_dir)
     check_macos_installer(gate, macos_dir)
     check_notarization(gate, macos_dir)
-    check_windows(gate, windows_dir)
+    check_windows(gate, windows_dir, explicit=bool(args.windows_dir))
     check_test_evidence(gate, args.validation_log, args.site_test_log)
     check_host_acceptance(gate, args.host_acceptance, args.release_notes, args.evidence_root)
 

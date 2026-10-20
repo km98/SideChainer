@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="ScPrd" name="SideChain" projectType="audioplug" version="0.4.1"
+<JUCERPROJECT id="ScPrd" name="SideChain" projectType="audioplug" version="0.5.0"
               bundleIdentifier="com.musicprod.sidechain" includeBinaryInAppConfig="1"
               buildVST="0" buildVST3="1" buildAU="1" buildAUv3="0" buildStandalone="0"
               buildRTAS="0" buildAAX="0" pluginName="PumpCurve"
@@ -17,6 +17,9 @@
               pluginCharacteristicsValue="" jucerFormatVersion="1">
   <MAINGROUP id="MnGrp" name="SideChain">
     <GROUP id="{5D61A2B4-0000-4000-8000-000000000001}" name="Source">
+      <FILE id="UserPresetLibrary050" name="UserPresetLibrary.h" compile="0" resource="0" file="Source/UserPresetLibrary.h"/>
+      <FILE id="LicenseGate050" name="LicenseGate.h" compile="0" resource="0" file="Source/LicenseGate.h"/>
+      <FILE id="UpdateCheck051" name="UpdateCheck.h" compile="0" resource="0" file="Source/UpdateCheck.h"/>
       <FILE id="SrcPrc" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="HdrPrc" name="PluginProcessor.h" compile="0" resource="0"
@@ -29,6 +32,8 @@
             file="Source/GraphComponent.h"/>
       <FILE id="HdrGdt" name="GraphData.h" compile="0" resource="0"
             file="Source/GraphData.h"/>
+      <FILE id="HdrWfd" name="WaveformData.h" compile="0" resource="0"
+            file="Source/WaveformData.h"/>
       <FILE id="HdrEdt" name="PluginEditor.h" compile="0" resource="0"
             file="Source/PluginEditor.h"/>
       <FILE id="HdrTgp" name="TransportGate.h" compile="0" resource="0"

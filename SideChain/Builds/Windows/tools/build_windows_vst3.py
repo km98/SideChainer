@@ -47,7 +47,7 @@ import tempfile
 EXPECT_PLUGIN_NAME = "PumpCurve"
 EXPECT_PLUGIN_CODE = "SdCh"
 EXPECT_COMPANY = "Music-Prod"
-EXPECT_VERSION = "0.4.1"
+EXPECT_VERSION = "0.5.0"
 EXPECT_BUNDLE_ID = "com.musicprod.sidechain"
 
 HERE = pathlib.Path(__file__).resolve().parent

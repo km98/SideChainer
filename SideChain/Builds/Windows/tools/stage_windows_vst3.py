@@ -406,7 +406,7 @@ def verify_zip(zip_path, version):
 
 # ------------------------------------------------------------------- self-test
 
-def synthetic_module(product=PRODUCT, machine=PE_MACHINE_X64, version="0.4.1",
+def synthetic_module(product=PRODUCT, machine=PE_MACHINE_X64, version="0.5.0",
                      legacy=None, pe=True):
     """A minimal, structurally valid PE image carrying JUCE-style identity strings.
 
@@ -586,7 +586,7 @@ def main():
     ap.add_argument("--verify-zip", metavar="ZIP", help="verify an existing archive")
     ap.add_argument("--inspect-module", metavar="FILE", help="inspect a VST3 module binary")
     ap.add_argument("--out-dir", help="output directory (default: ./artifacts)")
-    ap.add_argument("--version", default="0.4.1", help="product version for file names")
+    ap.add_argument("--version", default="0.5.0", help="product version for file names")
     ap.add_argument("--self-test", action="store_true", help="run the fixture self-test")
     args = ap.parse_args()
 

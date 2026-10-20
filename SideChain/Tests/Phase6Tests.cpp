@@ -418,14 +418,16 @@ int main()
         check (a3 != nullptr && std::abs (a3->get() - 30.0f) < 0.01f, "old state: Amount=30 restores");
         check (r3 != nullptr && std::abs (r3->get() - 150.0f) < 0.01f, "old state without Release: safe default 150 ms");
 
-        // 5c. Current state schema carries version 6 and its default curve.
+        // 5c. Current state schema carries version 7 (0.4.2) and its default
+        // curve. The version is asserted as the CURRENT schema, so a future
+        // parameter or state change that bumps it must update this line.
         SideChainAudioProcessor proc4;
         juce::MemoryBlock mb4;
         proc4.getStateInformation (mb4);
         auto tree = juce::ValueTree::readFromData (mb4.getData(), mb4.getSize());
-        check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 6
+        check (tree.isValid() && (int) tree.getProperty ("stateVersion", juce::var (0)) == 7
                    && tree.getChildWithName ("PUMPCURVE").isValid(),
-               "saved state carries schema 6 and default PUMPCURVE subtree");
+               "saved state carries the current schema (7) and default PUMPCURVE subtree");
     }
 
     // ==================================================================
@@ -925,10 +927,10 @@ int main()
                                        && restored.getPumpCurve()[i].y == custom[i].y;
             check (accepted && exactCurve
                        && restored.getCurveStateMode() == StateMode::pumpCurve
-                       && (int) savedTree.getProperty ("stateVersion", juce::var (0)) == 6
+                       && (int) savedTree.getProperty ("stateVersion", juce::var (0)) == 7
                        && savedTree.getChildWithName ("PUMPCURVE").getNumChildren() == 4
                        && savedTree.getChildWithName ("FUTURE_CHILD").isValid(),
-                   "schema 6 curve serializes as inspectable POINT children and round-trips exactly");
+                   "current-schema curve serializes as inspectable POINT children and round-trips exactly");
             check (std::abs (readFloat (restored, "sidechainAmount") - 67.3f) < 0.06f
                        && std::abs (readFloat (restored, "duckLength") - 612.0f) < 0.1f
                        && std::abs (readFloat (restored, "release") - 333.0f) < 0.1f

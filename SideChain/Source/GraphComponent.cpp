@@ -1,6 +1,12 @@
 /*
     SideChain - graph component implementation (Phase 4; 0.3.0 view modes).
 
+    LIVE WAVEFORM LAYER (0.4.2): paintPumpCurve() fills the plot, draws the
+    grid, then paints the real input/output waveform envelopes (paintWaveform)
+    and only afterwards the PumpCurve curve, its labels and its control points.
+    The z-order is therefore exactly what the product requires: audio behind,
+    editable curve on top.
+
     SIDECHAIN view (default): the actual ducking envelope only.
       - live: the gain-reduction history IS the envelope - one kick, one
         dip; recent cycles scroll naturally as new frames arrive; small
@@ -20,6 +26,7 @@
 
 #include "GraphComponent.h"
 #include "DuckEngine.h"
+#include "PumpCurveTheme.h"
 
 namespace
 {
@@ -47,24 +54,38 @@ GraphComponent::GraphComponent()
     setOpaque (true);
     setWantsKeyboardFocus (true);
     setMouseClickGrabsKeyboardFocus (true);
-    resetButton_.setTooltip ("Restore the default PumpCurve");
-    resetButton_.setColour (juce::TextButton::buttonColourId, juce::Colour (0xff15181e));
-    resetButton_.setColour (juce::TextButton::textColourOffId, juce::Colour (0xffb8d8cf));
+    resetButton_.setTooltip ("Restore the default PumpCurve (also: right-click the curve)");
+    sid::theme::setButtonStyle (resetButton_, sid::theme::ButtonStyle::quiet);
     resetButton_.onClick = [this] { resetCurve(); };
     addAndMakeVisible (resetButton_);
     resetHistory();
 }
 
+// Panel geometry (0.5.0 redesign): a title strip on top (CURVE caption, the
+// IN/OUT legend and RESET), a left gutter for the gain axis (UNITY / DUCK) and
+// a bottom gutter for the time axis (HIT .. TIME). The plot itself - where the
+// curve, its points and the live waveform live - takes everything else.
+namespace
+{
+    constexpr float kPlotTop    = 32.0f;
+    constexpr float kPlotBottom = 24.0f;
+    constexpr float kPlotLeft   = 50.0f;
+    constexpr float kPlotRight  = 18.0f;
+}
+
 juce::Rectangle<float> GraphComponent::curvePlotBounds() const noexcept
 {
-    auto bounds = getLocalBounds().toFloat().reduced (18.0f, 16.0f);
-    bounds.removeFromTop (14.0f);
+    auto bounds = getLocalBounds().toFloat();
+    bounds.removeFromTop (kPlotTop);
+    bounds.removeFromBottom (kPlotBottom);
+    bounds.removeFromLeft (kPlotLeft);
+    bounds.removeFromRight (kPlotRight);
     return bounds;
 }
 
 void GraphComponent::resized()
 {
-    resetButton_.setBounds (getWidth() - 70, 2, 54, 20);
+    resetButton_.setBounds (getWidth() - (int) kPlotRight - 56 + 6, 5, 56, 22);
     repaint();
 }
 
@@ -337,7 +358,113 @@ void GraphComponent::resetHistory()
     outputHist_.fill (-100.0f);
     writePos_ = 0;
     filled_ = false;
+    waveformHistory_.clear();      // the scope is part of "history"
+    waveformNowMs_ = 0;
     repaint();
+}
+
+//==============================================================================
+// Live waveform layer
+//==============================================================================
+
+void GraphComponent::consumeWaveformFifo (sid::scope::WaveformFifo& fifo, juce::int64 nowMs)
+{
+    const bool wasDisplayable = hasDisplayableWaveform();
+    waveformNowMs_ = nowMs;
+    const int appended = waveformHistory_.consume (fifo, nowMs);
+
+    // Repaint when there is new material, and also on the single tick where a
+    // stalled producer or a drained window flips the layer to its no-signal
+    // fallback (so the change is never left unpainted).
+    if (appended > 0 || wasDisplayable != hasDisplayableWaveform())
+        repaint();
+}
+
+void GraphComponent::paintWaveform (juce::Graphics& g, juce::Rectangle<float> plot)
+{
+    // Amplitude maps to the plot's own vertical extent with silence on the
+    // centre line, so the waveform and the curve share one coordinate space:
+    // the curve shows the gain being applied, the trace shows the audio it is
+    // being applied to.
+    const float centreY = plot.getCentreY();
+    const float halfHeight = plot.getHeight() * 0.5f * 0.96f;
+    const bool displayable = hasDisplayableWaveform();
+
+    // Zero baseline (also the whole no-signal fallback).
+    g.setColour (juce::Colour (displayable ? sid::theme::kGridMajor : sid::theme::kEdge));
+    g.drawHorizontalLine ((int) centreY, plot.getX(), plot.getRight());
+
+    if (! displayable)
+    {
+        g.setFont (sid::theme::captionFont (10.0f));
+        g.setColour (juce::Colour (sid::theme::kTextFaint));
+        g.drawText ("NO SIGNAL", (int) plot.getRight() - 92, (int) centreY + 6, 84, 12,
+                    juce::Justification::topRight);
+        return;
+    }
+
+    const int count = waveformHistory_.count();
+    if (count < 2)
+        return;
+
+    // Filled min/max envelopes (top contour forward, bottom contour back):
+    // the input as a quiet neutral body, the processed output as a mint body
+    // inside it - the gap between the two IS the duck you hear. Both stay well
+    // below the curve's own weight; the curve is painted after this layer.
+    const float width = plot.getWidth();
+    auto envelope = [&] (bool output)
+    {
+        juce::Path p;
+        for (int i = 0; i < count; ++i)
+        {
+            const float x = plot.getX() + (float) i / (float) (count - 1) * width;
+            const float top = centreY - (output ? waveformHistory_.outputMax (i)
+                                                : waveformHistory_.inputMax (i)) * halfHeight;
+            if (i == 0) p.startNewSubPath (x, top); else p.lineTo (x, top);
+        }
+        for (int i = count - 1; i >= 0; --i)
+        {
+            const float x = plot.getX() + (float) i / (float) (count - 1) * width;
+            const float bottom = centreY - (output ? waveformHistory_.outputMin (i)
+                                                   : waveformHistory_.inputMin (i)) * halfHeight;
+            p.lineTo (x, juce::jmax (bottom, centreY - (output ? waveformHistory_.outputMax (i)
+                                                               : waveformHistory_.inputMax (i)) * halfHeight + 0.6f));
+        }
+        p.closeSubPath();
+        return p;
+    };
+
+    const auto inputBody = envelope (false);
+    const auto outputBody = envelope (true);
+    g.setColour (juce::Colour (sid::theme::kInput).withAlpha (0.12f));
+    g.fillPath (inputBody);
+    g.setColour (juce::Colour (sid::theme::kInput).withAlpha (0.22f));
+    g.strokePath (inputBody, juce::PathStrokeType (0.7f));
+    g.setColour (juce::Colour (sid::theme::kAccent).withAlpha (0.11f));
+    g.fillPath (outputBody);
+    g.setColour (juce::Colour (sid::theme::kAccent).withAlpha (0.30f));
+    g.strokePath (outputBody, juce::PathStrokeType (0.8f));
+}
+
+void GraphComponent::paintLegend (juce::Graphics& g, juce::Rectangle<int> area)
+{
+    // IN / OUT legend in the title strip (always present, dimmed when nothing
+    // is flowing, so the meaning of the traces never has to be guessed).
+    const bool live = waveformDisplayEnabled_ && hasDisplayableWaveform();
+    const float alpha = live ? 1.0f : 0.45f;
+    g.setFont (sid::theme::captionFont (9.5f));
+    auto item = [&] (const juce::String& text, juce::Colour c)
+    {
+        auto swatch = area.removeFromLeft (14).withSizeKeepingCentre (14, 2);
+        g.setColour (c.withMultipliedAlpha (alpha));
+        g.fillRect (swatch);
+        area.removeFromLeft (5);
+        g.setColour (juce::Colour (sid::theme::kTextMuted).withMultipliedAlpha (alpha));
+        g.drawText (text, area.removeFromLeft (28), juce::Justification::centredLeft, false);
+        area.removeFromLeft (8);
+    };
+    item ("IN", juce::Colour (sid::theme::kInput));
+    item ("OUT", juce::Colour (sid::theme::kAccent));
 }
 
 void GraphComponent::consumeFrames (sid::graph::GraphFrameFifo& fifo)
@@ -420,20 +547,66 @@ bool GraphComponent::historyIsSilent() const
 //==============================================================================
 void GraphComponent::paintPumpCurve (juce::Graphics& g)
 {
+    using namespace sid::theme;
     const auto curvePlot = curvePlotBounds();
-    g.setColour (juce::Colour (0xff090c10));
-    g.fillRect (curvePlot);
 
-    g.setColour (juce::Colour (0xff202832));
-    for (int i = 1; i < 4; ++i)
+    // The well: the curve editor is recessed INTO the instrument (darker than
+    // the field, shadowed along its top edge) - depth, not a bordered box.
+    const auto panel = getLocalBounds().toFloat();
+    drawWell (g, panel, 6.0f);
+
+    // Title strip: what this is, the trace legend, and (as a child) RESET.
     {
-        const float gx = curvePlot.getX() + curvePlot.getWidth() * (float) i / 4.0f;
-        const float gy = curvePlot.getY() + curvePlot.getHeight() * (float) i / 4.0f;
-        g.drawVerticalLine ((int) gx, curvePlot.getY(), curvePlot.getBottom());
-        g.drawHorizontalLine ((int) gy, curvePlot.getX(), curvePlot.getRight());
+        auto strip = juce::Rectangle<int> ((int) curvePlot.getX(), 7,
+                                           (int) curvePlot.getWidth() - 64, 20);
+        g.setFont (captionFont (10.5f));
+        g.setColour (juce::Colour (kTextMuted));
+        g.drawText ("PUMP CURVE", strip.removeFromLeft (100), juce::Justification::centredLeft, false);
+        if (waveformDisplayEnabled_)
+            paintLegend (g, strip.removeFromRight (104));
     }
-    g.setColour (juce::Colour (0xff34414c));
-    g.drawRect (curvePlot, 1.0f);
+
+    // Grid: quarters of the duck in time and of the depth in gain, drawn as
+    // faint dotted lines so they read as reference, never as structure.
+    {
+        const float dash[] = { 1.0f, 3.0f };
+        g.setColour (juce::Colour (kGridMajor));
+        for (int i = 1; i < 4; ++i)
+        {
+            const float gx = std::round (curvePlot.getX() + curvePlot.getWidth() * (float) i / 4.0f) + 0.5f;
+            const float gy = std::round (curvePlot.getY() + curvePlot.getHeight() * (float) i / 4.0f) + 0.5f;
+            g.drawDashedLine ({ gx, curvePlot.getY(), gx, curvePlot.getBottom() }, dash, 2, 1.0f);
+            g.drawDashedLine ({ curvePlot.getX(), gy, curvePlot.getRight(), gy }, dash, 2, 1.0f);
+        }
+        // Unity and full-duck references are solid: they are the scale.
+        g.setColour (juce::Colour (kGridMajor));
+        g.fillRect (curvePlot.getX(), curvePlot.getY(), curvePlot.getWidth(), 1.0f);
+        g.fillRect (curvePlot.getX(), curvePlot.getBottom() - 1.0f, curvePlot.getWidth(), 1.0f);
+    }
+
+    // Axis labels live OUTSIDE the plot, so a control point at either end can
+    // never sit on top of them.
+    {
+        g.setFont (captionFont (9.5f));
+        g.setColour (juce::Colour (kTextFaint));
+        const int gutterX = getLocalBounds().getX() + 8;
+        const int gutterW = (int) curvePlot.getX() - gutterX - 8;
+        g.drawText ("UNITY", gutterX, (int) curvePlot.getY() - 6, gutterW, 12,
+                    juce::Justification::centredRight, false);
+        g.drawText ("DUCK", gutterX, (int) curvePlot.getBottom() - 6, gutterW, 12,
+                    juce::Justification::centredRight, false);
+        const int axisY = (int) curvePlot.getBottom() + 6;
+        g.drawText ("HIT", (int) curvePlot.getX(), axisY, 60, 12,
+                    juce::Justification::centredLeft, false);
+        g.drawText ("TIME", (int) curvePlot.getRight() - 60, axisY, 60, 12,
+                    juce::Justification::centredRight, false);
+    }
+
+    // Live audio BELOW the curve: the editable PumpCurve and its control
+    // points are painted after this call, so they stay fully legible on top of
+    // the waveform layer.
+    if (waveformDisplayEnabled_)
+        paintWaveform (g, curvePlot);
 
     const auto curvePath = makeSmoothCurvePath (curvePlot);
     juce::Path fill;
@@ -441,37 +614,53 @@ void GraphComponent::paintPumpCurve (juce::Graphics& g)
     fill.lineTo (curvePlot.getRight(), curvePlot.getY());
     fill.lineTo (curvePlot.getX(), curvePlot.getY());
     fill.closeSubPath();
-    g.setColour (juce::Colour (0x337fd1c0));
+    // The removed gain (unity down to the curve) is the duck: a mint wash that
+    // deepens toward the curve keeps the shape readable without a block of
+    // colour.
+    g.setGradientFill (juce::ColourGradient (juce::Colour (kAccent).withAlpha (0.03f),
+                                             0.0f, curvePlot.getY(),
+                                             juce::Colour (kAccent).withAlpha (0.16f),
+                                             0.0f, curvePlot.getBottom(), false));
     g.fillPath (fill);
-    g.setColour (juce::Colour (0xff7fd1c0));
+
+    // Bloom, then the precise stroke on top.
+    g.setColour (juce::Colour (kAccent).withAlpha (0.12f));
+    g.strokePath (curvePath, juce::PathStrokeType (7.0f, juce::PathStrokeType::curved,
+                                                   juce::PathStrokeType::rounded));
+    g.setColour (juce::Colour (kAccent));
     g.strokePath (curvePath, juce::PathStrokeType (2.5f,
         juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-
-    g.setFont (juce::Font (10.0f));
-    g.setColour (juce::Colour (0xff8b98a6));
-    g.drawText ("UNITY", curvePlot.getX() + 4, curvePlot.getY() + 3, 48, 12,
-                juce::Justification::topLeft);
-    g.drawText ("DUCK", curvePlot.getX() + 4, curvePlot.getBottom() - 15, 48, 12,
-                juce::Justification::bottomLeft);
-    g.drawText ("PUMPCURVE", curvePlot.getRight() - 82, curvePlot.getY() + 3, 78, 12,
-                juce::Justification::topRight);
 
     for (std::size_t i = 0; i < curve_.size(); ++i)
     {
         const auto point = pointToPosition (curve_[i]);
         const bool selected = (int) i == selectedPoint_;
-        const float radius = selected ? 6.5f : 5.0f;
+        const bool endpoint = (i == 0 || i + 1 == curve_.size());
+        const float radius = selected ? 6.0f : 4.5f;
         if (selected)
         {
-            g.setColour (juce::Colour (0x557fd1c0));
-            g.fillEllipse (point.x - 10.0f, point.y - 10.0f, 20.0f, 20.0f);
+            g.setColour (juce::Colour (kAccent).withAlpha (0.18f));
+            g.fillEllipse (point.x - 12.0f, point.y - 12.0f, 24.0f, 24.0f);
         }
-        g.setColour (i == 0 || i + 1 == curve_.size()
-                         ? juce::Colour (0xffc3d2d6) : juce::Colour (0xff7fd1c0));
+        // A dark collar separates every handle from the curve and the traces.
+        g.setColour (juce::Colour (kWell));
+        g.fillEllipse (point.x - radius - 2.0f, point.y - radius - 2.0f,
+                       (radius + 2.0f) * 2.0f, (radius + 2.0f) * 2.0f);
+        g.setColour (endpoint ? juce::Colour (kText) : juce::Colour (kAccent));
         g.fillEllipse (point.x - radius, point.y - radius, radius * 2.0f, radius * 2.0f);
-        g.setColour (juce::Colour (0xff090c10));
-        g.drawEllipse (point.x - radius, point.y - radius, radius * 2.0f,
-                       radius * 2.0f, selected ? 1.5f : 1.0f);
+        if (selected)
+        {
+            g.setColour (juce::Colour (kText));
+            g.drawEllipse (point.x - radius - 3.5f, point.y - radius - 3.5f,
+                           (radius + 3.5f) * 2.0f, (radius + 3.5f) * 2.0f, 1.2f);
+        }
+    }
+
+    // Keyboard focus (Delete removes the selected point): a quiet mint edge.
+    if (hasKeyboardFocus (false))
+    {
+        g.setColour (juce::Colour (kAccent).withAlpha (0.35f));
+        g.drawRoundedRectangle (panel.reduced (0.5f), 6.0f, 1.0f);
     }
 }
 
@@ -479,7 +668,14 @@ void GraphComponent::paint (juce::Graphics& g)
 {
     if (! historyDisplayEnabled_)
     {
-        g.fillAll (juce::Colour (0xff000000));
+        // The component is opaque: give the well's rounded corners the field
+        // colour behind them before the well is drawn.
+        g.setGradientFill (juce::ColourGradient (
+            sid::theme::fieldColourAt ((float) getY() / (float) juce::jmax (1, getParentHeight())),
+            0.0f, 0.0f,
+            sid::theme::fieldColourAt ((float) getBottom() / (float) juce::jmax (1, getParentHeight())),
+            0.0f, (float) getHeight(), false));
+        g.fillAll();
         paintPumpCurve (g);
         return;
     }

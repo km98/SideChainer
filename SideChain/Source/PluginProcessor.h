@@ -37,20 +37,42 @@
       - "Offset" (id: sidechainOffset), int ms -30..+30, default 0,
         1 ms steps. Moves the duck envelope earlier/later relative to the
         BEAT. Negative values use lookahead (reported as plugin latency).
-
-    (The former "Sidechain While Stopped" control was removed in 0.4.0:
-    with no external sidechain, a stopped DAW timeline cannot advance a
-    beat grid, so a while-stopped override had no honest audio meaning.
-    Stopped state instead shows the parameter-driven envelope PREVIEW in
-    the graph.)
+      - "Active Only During Play/Rec" (id: transportGate), bool, default ON.
+        ON: the internal beat clock runs only while the host transport plays
+        or records. OFF: it free-runs at the host tempo so the effect operates
+        in a stopped DAW. Serializes with plugin state; absent in older
+        sessions, which therefore load with the default ON.
 
     Transport behaviour: internal beat triggers fire while the host is
     PLAYING or RECORDING; stopped hosts produce no triggers (the graph
-    shows the preview). No fake timing, no GUI-timer triggers.
+    shows the preview). No fake timing, no GUI-timer triggers. The
+    transportGate switch can relax this to free-running (see above).
+
+    Visualization: the live waveform layer behind the curve is fed by a
+    second lock-free FIFO (sid::scope::WaveformFifo) carrying per-chunk
+    min/max envelopes of the real main input and the real processed output.
+    It is display-only: nothing in the audio path depends on it.
 
     State: versioned ValueTree ("stateVersion"; 6 adds optional PumpCurve
-    state without changing the existing PARAMS/APVTS root). Versions 1-5
-    remain in legacy mode; unknown children are tolerated.
+    state without changing the existing PARAMS/APVTS root, 7 adds the
+    transportGate parameter). Versions 1-5 remain in legacy mode; unknown
+    children are tolerated.
+
+    DEMO / FULL VERSION (0.5.0): the processor owns the demo session gate
+    (sid::license::DemoGate) and the Music-Prod entitlement manager
+    (sid::auth::AuthManager). A user WITH a server-verified entitlement
+    (active paid Music-Prod+ subscription, or a valid Music-Prod licence key)
+    is never time-limited. Without one, each plugin INSTANCE processes audio
+    for 15 minutes and then stops, outputting silence until the instance is
+    restarted - restarting grants a fresh 15-minute session. There is no
+    permanent trial and no persistent countdown. The demo session is
+    deliberately NOT part of the plugin state: saving/reloading a project
+    neither extends nor resets it. See LicenseGate.h for the full model.
+
+    Entitlement ownership: the AuthManager lives HERE, not in the editor, so a
+    signed-in subscriber gets the full version even when no editor window was
+    ever opened. The audio thread never calls into it - it only reads one
+    atomic flag and one monotonic counter (see processBlock).
 */
 
 #pragma once
@@ -62,16 +84,46 @@
 #include "BeatScheduler.h"
 #include "GraphData.h"
 #include "PresetManager.h"
+#include "UserPresetLibrary.h"
 #include "TransportGate.h"
+#include "WaveformData.h"
 #include "PumpCurve.h"
+#include "LicenseGate.h"
+#include "MusicProdAuth.h"
+#include "UpdateCheck.h"
 
 //==============================================================================
 class SideChainAudioProcessor : public juce::AudioProcessor,
                                 private juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    SideChainAudioProcessor();
+    // Production constructs with no arguments. Tests may inject an auth
+    // transport (so the entitlement routes are exercised without a network),
+    // an auth-file path (so a real user token is never read) and an update
+    // transport (so the version-check contract is exercised without a network).
+    explicit SideChainAudioProcessor (std::unique_ptr<sid::auth::AuthTransport> authTransport = nullptr,
+                                      juce::String authFilePath = {},
+                                      std::unique_ptr<sid::update::UpdateTransport> updateTransport = nullptr);
     ~SideChainAudioProcessor() override = default;
+
+    //==========================================================================
+    // Demo session + entitlement state (0.5.0).
+
+    // The demo gate is read on the audio thread (atomics only) and displayed
+    // by the editor. Nothing here is serialized into plugin state.
+    sid::license::DemoGate& getDemoGate() noexcept             { return licenseGate_; }
+    const sid::license::DemoGate& getDemoGate() const noexcept { return licenseGate_; }
+
+    // Music-Prod account + entitlement manager. Owned by the processor; the
+    // audio thread never calls into it (its methods take a mutex).
+    sid::auth::AuthManager& getAuthManager() noexcept { return *authManager_; }
+
+    // Version-check (Plugin Versions). Owned by the processor so the check
+    // interval belongs to the INSTANCE and survives opening/closing the editor,
+    // but no request is issued until the UI asks (see refreshIfDue) - plugin
+    // scanning and headless use therefore never open a socket. The audio thread
+    // never calls into it.
+    sid::update::UpdateChecker& getUpdateChecker() noexcept { return *updateChecker_; }
 
     //==========================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -149,6 +201,14 @@ public:
     // behaviour), and the preset identity stays value-derived ("Custom"
     // is never stored).
 
+    // User presets reuse the project-state serializer/migration. File I/O is
+    // explicitly control-thread only; no preset-library work in processBlock.
+    juce::Result saveUserPreset (const sid::presets::UserPresetLibrary& library,
+                                const juce::String& name, juce::File& savedFile);
+    juce::Result loadUserPreset (const sid::presets::UserPresetLibrary& library,
+                                const juce::File& file);
+    juce::String getCurrentUserPresetName() const;
+
     // Apply a compiled-in factory preset by exact name. False if unknown.
     bool applyFactoryPreset (const juce::String& name);
 
@@ -175,9 +235,20 @@ public:
     // lock-free, pre-allocated. The editor drains it on a ~30 Hz timer.
     sid::graph::GraphFrameFifo graphFifo;
 
+    // Real-time waveform scope transport (audio thread -> GUI) for the live
+    // input/output traces drawn behind the curve. Same guarantees as
+    // graphFifo: fixed capacity, no allocation, no locks, no GUI calls on the
+    // audio thread.
+    sid::scope::WaveformFifo waveformFifo;
+
     // Reset the graph stream on plugin reinitialization (GUI reads a
     // sequence of zero frames after this so history settles to silence).
     void resetGraphStream();
+
+    // Same for the waveform scope: drains the FIFO and pushes silence frames,
+    // so a restart / transport jump can never splice a stale trace onto a new
+    // one and present it as one continuous signal.
+    void resetWaveformStream();
 
 #if defined (SIDECHAIN_HEADLESS_TEST)
     // Test-only engine access (headless test builds assert timing sync).
@@ -196,10 +267,22 @@ private:
 
     juce::AudioProcessorValueTreeState parameters;
 
+    // Demo session gate (atomics only on the audio thread) and the Music-Prod
+    // entitlement manager. Declared in this order so the constructor can wire
+    // the gate to the entitlement as soon as the manager exists.
+    sid::license::DemoGate licenseGate_;
+    std::unique_ptr<sid::auth::AuthManager> authManager_;
+    std::unique_ptr<sid::update::UpdateChecker> updateChecker_;
+
+    juce::String userPresetName_;
+    juce::MemoryBlock userPresetState_; // display identity, never serialized
+
     // Fixed-capacity editable model, owned by the state/control thread.
     sid::curve::PumpCurve pumpCurve_;
     sid::curve::StateMode curveStateMode_ = sid::curve::StateMode::pumpCurve;
-    int stateVersionForSave_ = 6; // Retain future versions; legacy mode normalizes to schema 5.
+    // Current schema version (kCurrentStateVersion in the .cpp: 7 in 0.4.2).
+    // Retain future versions; legacy mode normalizes to schema 5.
+    int stateVersionForSave_ = 7;
     mutable std::mutex curveModelMutex_; // control/state threads only, never audio
     std::mutex curveSnapshotWriterMutex_; // serializes snapshot publishers, never audio
 
@@ -218,6 +301,7 @@ private:
     std::atomic<float>* releaseRawParameter = nullptr;
     std::atomic<float>* duckLengthRawParameter = nullptr; // ms, 50..1000
     std::atomic<float>* offsetRawParameter  = nullptr;  // int ms, -30..+30
+    std::atomic<float>* transportGateRawParameter = nullptr; // bool, 1 = ON
 
     double currentSampleRate = 48000.0;
 

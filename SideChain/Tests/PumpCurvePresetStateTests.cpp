@@ -214,9 +214,9 @@ int main()
         sid::curve::PumpCurve stored;
         check (set && p.getCurveStateMode() == sid::curve::StateMode::pumpCurve
             && same (p.getPumpCurve(), defaults) && extract (state, stored) && same (stored, defaults)
-            && (int) state.getProperty ("stateVersion", juce::var (0)) == 6
+            && (int) state.getProperty ("stateVersion", juce::var (0)) == 7
             && p.getCurrentPresetDisplayName() == "Default",
-            "explicit default/reset restores canonical valid curve and deterministic schema 6 state");
+            "explicit default/reset restores canonical valid curve and deterministic current schema (7) state");
     }
 
     std::printf ("%d/%d checks passed. %s\n", checks - failures, checks,

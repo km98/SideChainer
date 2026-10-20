@@ -315,6 +315,24 @@ check "$(grep -q 'products-pumpcurve' "$SCRIPT_DIR/validate_all.sh" && echo 1 ||
     "validate_all.sh keeps the staged bundles outside the tracked release assets"
 
 # ---------------------------------------------------------------------------
+printf '\nInstaller legacy-bundle cleanup (preinstall fixture)\n'
+# ---------------------------------------------------------------------------
+# preinstall is the only release step that deletes files from a customer's
+# machine (the pre-0.4.2 SideChain.*/SideChainer.* bundles carrying our AU
+# identity). Its policy is pinned by a fixture test that drives the script
+# through its documented PUMPCURVE_LEGACY_ROOTS hook.
+if [ -x "$SCRIPT_DIR/test_preinstall.sh" ]; then
+    if "$SCRIPT_DIR/test_preinstall.sh" >"$TMP_ROOT/preinstall-fixture.log" 2>&1; then
+        check 1 "preinstall removes only our legacy bundles and keeps everything else ($(sed -n 's/^\( [0-9]*\/[0-9]*\) preinstall.*/\1/p' "$TMP_ROOT/preinstall-fixture.log" | tr -d ' ') checks)"
+    else
+        check 0 "preinstall legacy-cleanup fixture"
+        sed 's/^/      /' "$TMP_ROOT/preinstall-fixture.log" | tail -20
+    fi
+else
+    check 0 "Tests/test_preinstall.sh is present and executable"
+fi
+
+# ---------------------------------------------------------------------------
 printf '\n'
 echo "============================================================"
 printf ' %s/%s infrastructure checks passed\n' "$((checks - failures))" "$checks"

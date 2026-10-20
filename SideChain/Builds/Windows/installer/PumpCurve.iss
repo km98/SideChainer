@@ -1,6 +1,6 @@
 ; PumpCurve - Windows x64 VST3 installer recipe (Inno Setup 6)
 ;
-; Build:  ISCC.exe /DAppVersion=0.4.1 /DStagedBundle=<path to PumpCurve.vst3> PumpCurve.iss
+; Build:  ISCC.exe /DAppVersion=0.5.0 /DStagedBundle=<path to PumpCurve.vst3> PumpCurve.iss
 ;         (installer\build_installer.cmd does exactly that and hashes the result)
 ;
 ; What it does
@@ -31,7 +31,7 @@
 
 #define AppName "PumpCurve"
 #ifndef AppVersion
-  #define AppVersion "0.4.1"
+  #define AppVersion "0.5.0"
 #endif
 #ifndef StagedBundle
   #define StagedBundle "..\..\artifacts\PumpCurve.vst3"

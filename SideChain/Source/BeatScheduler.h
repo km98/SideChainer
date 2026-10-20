@@ -1,5 +1,6 @@
 /*
-    SideChain - internal tempo-synced beat trigger scheduler (0.4.0).
+    PumpCurve - internal tempo-synced beat trigger scheduler (0.4.0;
+    free-running mode added in 0.4.2).
 
     The product behaviour: the DAW transport's musical timeline (PPQ
     position + BPM from AudioPlayHead::CurrentPositionInfo) fires ONE duck
@@ -14,6 +15,17 @@
       - For every beat inside the current block the trigger fires at the
         EXACT sample offset (multiple beats per block all fire, in order).
 
+    FREE-RUNNING MODE (0.4.2, see advanceFreeRunning):
+      When the user switches the transport gate OFF ("ACTIVE ONLY DURING
+      PLAY/REC" = off) the effect must operate whether or not the transport
+      rolls. A stopped DAW timeline cannot advance a beat grid, so this mode
+      keeps its own sample clock and spaces beats by one quarter note at the
+      current tempo (falling back to kFreeRunFallbackBpm when the host reports
+      no usable tempo). It is a SEPARATE clock from the host-anchored
+      schedule: entering it clears the host schedule, and the host-anchored
+      path re-anchors from the playhead when it resumes, so neither mode can
+      emit the other's stale beats.
+
     Robustness (required behaviours):
       - PLAY/RECORD: scheduling active. STOP: reset() is called; nothing
         is scheduled and no stale triggers survive a stop.
@@ -23,7 +35,8 @@
       - Tempo change: each beat step converts PPQ -> samples using the
         CURRENT block BPM, so tempo changes resynchronize continuously.
       - BPM unavailable / invalid (<= 0): the block produces no triggers
-        (honest fail-safe, no fake timing).
+        (honest fail-safe, no fake timing). Free-running mode uses the
+        documented fallback tempo instead of inventing a grid from nothing.
       - PPQ unavailable but BPM valid: beats continue from the previous
         schedule when contiguous (tempo grid stays musical).
 
@@ -43,6 +56,11 @@ namespace sid::transport
 class BeatScheduler
 {
 public:
+    // Tempo used by the free-running clock when the host reports no usable
+    // BPM. Documented product value (the factory presets are all quoted at
+    // 120 BPM), never presented as host timing.
+    static constexpr double kFreeRunFallbackBpm = 120.0;
+
     // The scheduler converts BPM -> host samples; the processor sets the
     // rate once in prepareToPlay.
     void setSampleRate (double sampleRate) noexcept { sampleRate_ = sampleRate; }
@@ -100,19 +118,67 @@ public:
         }
     }
 
-    // Call on prepareToPlay / transport stop: forget the schedule so the
-    // next playing block re-anchors cleanly (no stale triggers).
+    // Call on prepareToPlay / transport stop: forget every schedule so the
+    // next block re-anchors cleanly (no stale triggers).
     void reset()
+    {
+        resetHostSchedule();
+        nextFreeRunBeat_.reset();
+    }
+
+    // Forget only the host-anchored schedule (used when the free-running clock
+    // takes over, so a later resumption cannot emit a stale host beat).
+    void resetHostSchedule()
     {
         nextBeatHostSample_.reset();
         nextBeatPpq_.reset();
         lastBlockEndSample_.reset();
     }
 
+    // ------------------------------------------------------------------
+    // Free-running mode: the transport gate is OFF, so the effect operates
+    // regardless of the host transport. Beats are spaced one quarter note
+    // apart at `bpm` (or kFreeRunFallbackBpm when that is unusable) on this
+    // scheduler's own sample clock.
+    //
+    // The FIRST call arms the clock one whole beat ahead instead of firing
+    // immediately: switching the gate off must not punch a trigger into the
+    // middle of a bar (no abrupt discontinuity), it just resumes the grid from
+    // the next beat.
+    // ------------------------------------------------------------------
+    template <typename TriggerFn>
+    void advanceFreeRunning (int numSamples, double bpm, TriggerFn&& onBeat)
+    {
+        if (numSamples <= 0 || sampleRate_ <= 0.0)
+            return;
+
+        const double tempo = (std::isfinite (bpm) && bpm > 0.0)
+                           ? bpm : kFreeRunFallbackBpm;
+        const long long samplesPerQuarter = juce::jmax (
+            (long long) 1,
+            (long long) std::llround (60.0 / tempo * sampleRate_));
+
+        if (! nextFreeRunBeat_.has_value())
+            nextFreeRunBeat_ = samplesPerQuarter; // one beat of grace
+
+        while (*nextFreeRunBeat_ < (long long) numSamples)
+        {
+            const long long offset = juce::jlimit ((long long) 0,
+                                                   (long long) numSamples - 1,
+                                                   *nextFreeRunBeat_);
+            onBeat ((int) offset);
+            *nextFreeRunBeat_ += samplesPerQuarter;
+        }
+
+        *nextFreeRunBeat_ -= numSamples;
+    }
+
     // Test/diagnostic accessors.
     bool      hasSchedule() const noexcept      { return nextBeatHostSample_.has_value(); }
     long long nextBeatHostSample() const        { return *nextBeatHostSample_; }
     double    nextBeatPpq() const               { return *nextBeatPpq_; }
+    bool      hasFreeRunSchedule() const noexcept { return nextFreeRunBeat_.has_value(); }
+    long long nextFreeRunBeatSamples() const    { return *nextFreeRunBeat_; }
 
 private:
     void anchorAt (long long blockStart, double bpm, double ppqAtBlockStart)
@@ -140,6 +206,12 @@ private:
     std::optional<long long> nextBeatHostSample_;
     std::optional<double>    nextBeatPpq_;
     std::optional<long long> lastBlockEndSample_;
+
+    // Free-running clock (transport gate OFF): samples until the next beat,
+    // relative to the current block start. Audio-thread owned plain integer,
+    // no allocation, no host dependency.
+    std::optional<long long> nextFreeRunBeat_;
+
     double sampleRate_ = 0.0;
 };
 

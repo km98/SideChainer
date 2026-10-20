@@ -12,6 +12,13 @@
 #   7. BeatSchedulerTests            - 0.4.0 internal beat scheduler
 #   8. PumpCurveDspTests             - Phase D PumpCurve DSP integration
 #   9. PumpCurvePresetStateTests     - Phase E preset curve ownership + schema migration
+#  10. TransportGateWaveformTests   - 0.4.2 transport switch + live waveform scope
+#  11. UserPresetTests              - persistent user library and full sound state
+#  12. LicenseDemoTests             - 0.5.0 demo session gate + entitlement
+#                                     (subscription / licence key / offline policy)
+#  13. UpdateCheckTests             - 0.5.0 plugin version check (Plugin Versions:
+#                                     catalog parsing, semantic comparison, the
+#                                     check interval, offline handling)
 #
 # Usage:
 #   ./Tests/run_all.sh [--rebuild] [--suite NAME[,NAME]] [--out-dir DIR]
@@ -74,7 +81,8 @@ while [ $# -gt 0 ]; do
         --list)
             printf '%s\n' DSPRegressionTests Phase4Tests Phase6Tests PresetTests \
                 Phase8Tests DuckLengthTests BeatSchedulerTests PumpCurveDspTests \
-                PumpCurvePresetStateTests
+                PumpCurvePresetStateTests TransportGateWaveformTests UserPresetTests \
+                LicenseDemoTests UpdateCheckTests
             exit 0
             ;;
         --suite)
@@ -258,6 +266,34 @@ run_suite PumpCurveDspTests PumpCurveDspTests.cpp \
 
 # 9. Phase E preset curve ownership and schema migration compatibility.
 run_suite PumpCurvePresetStateTests PumpCurvePresetStateTests.cpp \
+    "$PH6_FLAGS" \
+    "$PH6_TUS" "$GUI_FRAMEWORKS"
+
+# 10. 0.4.2 transport switch ("ACTIVE ONLY DURING PLAY/REC") + live waveform
+#     scope: real processor, real play head, real GraphComponent, plus a
+#     measured audio-thread allocation census.
+run_suite TransportGateWaveformTests TransportGateWaveformTests.cpp \
+    "$PH6_FLAGS" \
+    "$PH6_TUS ../Source/GraphComponent.cpp" "$GUI_FRAMEWORKS"
+
+# 11. Persistent shared user library, exact sound round-trip and migration.
+run_suite UserPresetTests UserPresetTests.cpp \
+    "$PH6_FLAGS" \
+    "$PH6_TUS" "$GUI_FRAMEWORKS"
+
+# 12. 0.5.0 demo session gate + full-version entitlement. Real processor, real
+#     audio path, controllable monotonic clock, mock auth/licence transport:
+#     expires to real silence, restart grants a fresh session, plugin state
+#     cannot bypass a session, and both entitlement routes are covered.
+run_suite LicenseDemoTests LicenseDemoTests.cpp \
+    "$PH6_FLAGS" \
+    "$PH6_TUS" "$GUI_FRAMEWORKS"
+
+# 13. 0.5.0 plugin version check (Plugin Versions). Pure parsing and comparison,
+#     the check interval on a controllable monotonic clock, offline handling, the
+#     real request shape, and the REAL processor wiring (no request before the UI
+#     asks; a failing check cannot stop audio or change the licence state).
+run_suite UpdateCheckTests UpdateCheckTests.cpp \
     "$PH6_FLAGS" \
     "$PH6_TUS" "$GUI_FRAMEWORKS"
 

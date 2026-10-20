@@ -1,5 +1,6 @@
 /*
-    SideChainer (SideChain) - production processor implementation (0.4.0).
+    SideChainer (SideChain) - production processor implementation (0.4.0;
+    transport switch + live waveform scope in 0.4.2).
 
     Processing policy:
       - Main path:  main input -> lookahead delay -> shared ducking gain
@@ -7,13 +8,22 @@
         internally from the DAW transport timeline.
       - The beat scheduler fires one duck envelope per quarter-note beat
         at the exact sample (host PPQ/BPM/timeInSamples), while the host
-        transport is playing or recording.
+        transport is playing or recording. With the user-facing
+        "ACTIVE ONLY DURING PLAY/REC" switch OFF the scheduler free-runs at
+        the host tempo instead, so the effect operates in a stopped DAW.
       - Amount = 0 % => depth 0 dB => gain stays exactly 1.0 => main path
         is bit-transparent apart from the trivial gain multiply by 1.0.
 
     Audio-thread safety: no allocations, no locks, no I/O, no GUI calls.
+    Nothing in the audio path reads the waveform scope; it is a write-only
+    side channel to the editor.
 */
 
+#if defined (__APPLE__)
+#include <CoreFoundation/CoreFoundation.h>
+#elif defined (_WIN32)
+#include <windows.h>
+#endif
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -30,22 +40,172 @@ namespace
     //   6 = Phase B/D : PUMPCURVE subtree and Smooth parameter. Legacy-mode
     //                   states remain serialized at schema 5 until explicitly
     //                   edited or reset into a PumpCurve.
-    constexpr int kCurrentStateVersion = 6;
+    //   7 = 0.4.2     : + transportGate ("ACTIVE ONLY DURING PLAY/REC",
+    //                   default ON); a second parameter change, so the version
+    //                   bumps as it did for schemas 2-4. States written by
+    //                   0.4.1 and earlier carry no such PARAM child and load
+    //                   with the ON default.
+    constexpr int kCurrentStateVersion = 7;
+
+    // The Music-Prod plugin-auth edge function - the same endpoint the
+    // existing Music-Prod plugin flow uses. Public URL; contains no secret.
+    // It implements start / approve / deny / poll / entitlements / download /
+    // logout / activate-license (see MusicProdAuth.h). Every answer is scoped
+    // to the product the token was issued for; only "sidechain" answers count.
+    const char* const kPluginAuthEndpoint =
+        "https://wfpeajmdojcjqyrsnxbk.supabase.co/functions/v1/vyre-plugin-auth";
+
+    // The PUBLIC version-check route of the existing release service, on the
+    // same functions origin. It is the same endpoint Music-Prod Studio's
+    // self-update uses; the product slug is the release catalog's key for this
+    // plugin. Public read-only URL, no secret, no token: it answers with the
+    // latest PUBLISHED version and nothing else (drafts and withdrawn releases
+    // are never served).
+    const char* const kUpdatesEndpoint =
+        "https://wfpeajmdojcjqyrsnxbk.supabase.co/functions/v1/music-prod-studio-api/v1/updates";
+
+    // The release catalog's product key for this plugin. One place only: the
+    // auth flow, the version check and (later) downloads must never disagree.
+    const char* const kProductSlug = "sidechain";
+
+    // Token file location, mirroring the existing plugin architecture (the
+    // token lives outside DAW state and is never serialized into a project).
+    juce::String defaultAuthFilePath()
+    {
+        return juce::File::getSpecialLocation (juce::File::userApplicationDataDirectory)
+                   .getChildFile ("Music-Prod/SideChain/auth.json").getFullPathName();
+    }
+
+#if defined (SIDECHAIN_HEADLESS_TEST)
+    // Headless test builds must never open a socket. A suite that wants to
+    // exercise authentication injects its own mock transport; a processor
+    // constructed without one gets this do-nothing transport. (Plugin
+    // scanning is unaffected either way: no request is issued at
+    // construction, only when the plugin is actually in use.)
+    struct NullAuthTransport : public sid::auth::AuthTransport
+    {
+        sid::auth::StartResponse start (const juce::String&, const juce::String&, const juce::String&) override
+        {
+            sid::auth::StartResponse r;
+            return r;
+        }
+        sid::auth::PollResponse poll (const juce::String&) override
+        {
+            sid::auth::PollResponse r;
+            r.status = "error";
+            return r;
+        }
+        sid::auth::EntitlementsResponse entitlements (const juce::String&) override
+        {
+            return {};   // neither ok nor authFailure: nothing is granted
+        }
+        bool logout (const juce::String&) override { return false; }
+    };
+
+    // Headless test builds must never open a socket for the update check either.
+    // A suite that wants to exercise the version-check contract injects its own
+    // transport; a processor constructed without one gets this transport, which
+    // reports "cannot reach" - the state the UI must handle honestly.
+    struct NullUpdateTransport : public sid::update::UpdateTransport
+    {
+        bool fetch (const juce::String&, const juce::String&, const juce::String&,
+                    const juce::String&, sid::update::UpdateInfo&) override
+        {
+            return false;
+        }
+    };
+#endif
+
+    std::unique_ptr<sid::auth::AuthTransport> makeDefaultAuthTransport()
+    {
+#if defined (SIDECHAIN_HEADLESS_TEST)
+        return std::make_unique<NullAuthTransport>();
+#else
+        return std::make_unique<sid::auth::HttpAuthTransport> (kPluginAuthEndpoint);
+#endif
+    }
+
+    std::unique_ptr<sid::auth::AuthTransport> resolveAuthTransport (
+        std::unique_ptr<sid::auth::AuthTransport> injected)
+    {
+        return injected != nullptr ? std::move (injected) : makeDefaultAuthTransport();
+    }
+
+    std::unique_ptr<sid::update::UpdateTransport> makeDefaultUpdateTransport()
+    {
+#if defined (SIDECHAIN_HEADLESS_TEST)
+        return std::make_unique<NullUpdateTransport>();
+#else
+        return std::make_unique<sid::update::HttpUpdateTransport> (kUpdatesEndpoint);
+#endif
+    }
+
+    std::unique_ptr<sid::update::UpdateTransport> resolveUpdateTransport (
+        std::unique_ptr<sid::update::UpdateTransport> injected)
+    {
+        return injected != nullptr ? std::move (injected) : makeDefaultUpdateTransport();
+    }
+}
+
+juce::String sid::presets::UserPresetLibrary::foldedName (const juce::String& name)
+{
+#if JUCE_MAC
+    auto original = CFStringCreateWithCString (nullptr, name.toRawUTF8(), kCFStringEncodingUTF8);
+    if (original == nullptr) return name.toLowerCase();
+    auto folded = CFStringCreateMutableCopy (nullptr, 0, original);
+    CFRelease (original);
+    if (folded == nullptr) return name.toLowerCase();
+    CFStringFold (folded, kCFCompareCaseInsensitive | kCFCompareNonliteral, nullptr);
+    std::vector<char> bytes ((std::size_t) CFStringGetMaximumSizeForEncoding (CFStringGetLength (folded), kCFStringEncodingUTF8) + 1);
+    const bool ok = CFStringGetCString (folded, bytes.data(), (CFIndex) bytes.size(), kCFStringEncodingUTF8);
+    CFRelease (folded);
+    return ok ? juce::String::fromUTF8 (bytes.data()) : name.toLowerCase();
+#elif JUCE_WINDOWS
+    const int size = LCMapStringEx (LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, name.toWideCharPointer(), -1, nullptr, 0, nullptr, nullptr, 0);
+    if (size > 0)
+    {
+        std::vector<wchar_t> folded ((std::size_t) size);
+        if (LCMapStringEx (LOCALE_NAME_INVARIANT, LCMAP_LOWERCASE, name.toWideCharPointer(), -1, folded.data(), size, nullptr, nullptr, 0) != 0)
+            return juce::String (folded.data());
+    }
+#endif
+    return name.toLowerCase();
 }
 
 //==============================================================================
-SideChainAudioProcessor::SideChainAudioProcessor()
+SideChainAudioProcessor::SideChainAudioProcessor (
+    std::unique_ptr<sid::auth::AuthTransport> authTransport,
+    juce::String authFilePath,
+    std::unique_ptr<sid::update::UpdateTransport> updateTransport)
     : AudioProcessor (BusesProperties()
                           .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)
                           .withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters (*this, nullptr, "PARAMS", createParameterLayout())
+      parameters (*this, nullptr, "PARAMS", createParameterLayout()),
+      authManager_ (std::make_unique<sid::auth::AuthManager> (
+                        resolveAuthTransport (std::move (authTransport)),
+                        authFilePath.isNotEmpty() ? authFilePath : defaultAuthFilePath(),
+                        kProductSlug,    // product identity (server allowlist key)
+                        "SideChain",     // device_name (human-readable token record)
+                        JucePlugin_VersionString)),
+      // Version check (Plugin Versions): installed version is the COMPILED-IN
+      // project version and the platform/architecture are this running build, so
+      // the server answers with an installer the user can actually run. No
+      // request is made here - the editor's timer triggers the first check.
+      updateChecker_ (std::make_unique<sid::update::UpdateChecker> (
+                        resolveUpdateTransport (std::move (updateTransport)),
+                        kProductSlug,
+                        JucePlugin_VersionString,
+                        sid::update::platformForThisBuild(),
+                        sid::update::architectureForThisBuild()))
 {
     amountRawParameter = parameters.getRawParameterValue ("sidechainAmount");
     releaseRawParameter = parameters.getRawParameterValue ("release");
     duckLengthRawParameter = parameters.getRawParameterValue ("duckLength");
     offsetRawParameter = parameters.getRawParameterValue ("sidechainOffset");
+    transportGateRawParameter = parameters.getRawParameterValue ("transportGate");
     jassert (amountRawParameter != nullptr && releaseRawParameter != nullptr
              && duckLengthRawParameter != nullptr && offsetRawParameter != nullptr
+             && transportGateRawParameter != nullptr
              && parameters.getRawParameterValue ("smooth") != nullptr);
 
     parameters.addParameterListener ("release", this);
@@ -53,6 +213,29 @@ SideChainAudioProcessor::SideChainAudioProcessor()
     publishPumpCurveSnapshot();
     applyReleaseToEngine();
     applyDuckLengthToEngine();
+
+    // ------------------------------------------------------------------
+    // Demo / full-version wiring (0.5.0).
+    //
+    // The entitlement answer is mirrored into the audio gate by ONE atomic
+    // store, from whichever thread verified it, so processBlock never reads
+    // anything but atomics and never talks to the network.
+    // ------------------------------------------------------------------
+    authManager_->onEntitlementChanged = [this] (bool fullVersion)
+    {
+        licenseGate_.setFullVersion (fullVersion);
+    };
+
+    // Restore the persisted account token. This is a FILE READ only - no
+    // network request is issued here, so plugin scanning can never block on
+    // the licensing server - and it also restores a still-fresh, previously
+    // SERVER-VERIFIED subscription answer (see AuthManager), so a signed-in
+    // subscriber is not silently downgraded to demo time while offline.
+    authManager_->loadPersistedToken();
+    authManager_->setBackgroundPolling (true);
+
+    // Apply whatever entitlement we already hold before the first block runs.
+    licenseGate_.setFullVersion (authManager_->hasFullEntitlement());
 }
 
 //==============================================================================
@@ -112,6 +295,21 @@ SideChainAudioProcessor::createParameterLayout()
         "Smooth",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f),
         50.0f));
+
+    // TRANSPORT GATE (0.4.2): "ACTIVE ONLY DURING PLAY/REC". ON (default) =
+    // the internal beat clock runs only while the host transport plays or
+    // records. OFF = the clock free-runs at the host tempo, so the effect
+    // operates in a stopped DAW.
+    //
+    // New, stable id: the pre-0.4.0 "sidechainWhileStopped" parameter encoded
+    // the INVERSE condition with the opposite default, so its id is NOT reused
+    // (that would silently flip behaviour for 0.3.x sessions). Being a normal
+    // APVTS parameter makes the switch host-automatable and serialized; a
+    // state without it loads with this default, which is the required ON.
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        "transportGate",
+        "Active Only During Play/Rec",
+        true));
 
     return layout;
 }
@@ -358,6 +556,15 @@ void SideChainAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     applyReleaseToEngine();    // prepare() resets coefficients; re-apply Shape
     applyDuckLengthToEngine(); // ... and Duck Length (prepare() uses defaults)
     resetGraphStream();
+    resetWaveformStream();
+
+    // The plugin is now genuinely in use (not merely instantiated for a
+    // plugin scan), so re-check the subscription in the background. Only a
+    // restored sign-in triggers this, the request is asynchronous, and the
+    // audio thread never waits for it. A failed request leaves the cached
+    // answer in place (never a silent downgrade).
+    if (authManager_->getState() == sid::auth::AuthManager::State::signedIn)
+        authManager_->refreshEntitlements();
 }
 
 void SideChainAudioProcessor::resetGraphStream()
@@ -370,6 +577,19 @@ void SideChainAudioProcessor::resetGraphStream()
 
     for (int i = 0; i < 128; ++i)
         graphFifo.push (f);
+}
+
+void SideChainAudioProcessor::resetWaveformStream()
+{
+    // Same policy for the scope: drop whatever was in flight and publish a
+    // run of silence frames, so a restart can never splice an old trace onto
+    // the new stream and present it as one continuous signal.
+    sid::scope::WaveformFrame silence;
+    sid::scope::WaveformFrame drained;
+    while (waveformFifo.pop (drained)) {}
+
+    for (int i = 0; i < sid::scope::WaveformHistory::kColumns; ++i)
+        waveformFifo.push (silence);
 }
 
 bool SideChainAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -395,6 +615,27 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     auto out    = getBusBuffer (buffer, false, 0);
 
     // ------------------------------------------------------------------
+    // DEMO / LICENCE GATE (0.5.0).
+    //
+    // A demo instance processes audio for 15 minutes from the moment that
+    // instance entered demo mode. Once the session expires, processing stops
+    // and the plugin outputs silence until the instance is restarted; a
+    // restart begins a fresh 15-minute session. A server-verified entitlement
+    // (paid Music-Prod+ subscription or valid licence key) bypasses this
+    // entirely.
+    //
+    // Cost on the audio thread: two relaxed atomic loads plus one monotonic
+    // counter read. No lock, no allocation, no file I/O, no network - the
+    // entitlement itself is verified on the auth thread, which only ever
+    // flips the flag read here.
+    // ------------------------------------------------------------------
+    if (! licenseGate_.processingAllowed())
+    {
+        out.clear();   // real silence; nothing downstream sees a bypass
+        return;
+    }
+
+    // ------------------------------------------------------------------
     // Host transport + musical timeline (playhead only; no inference).
     // ------------------------------------------------------------------
     bool  hostPlaying   = false;
@@ -418,26 +659,52 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     const bool transportActive = sid::transport::transportActive (hostPlaying, hostRecording);
 
+    // The user-facing "ACTIVE ONLY DURING PLAY/REC" switch (0.4.2): one atomic
+    // read per block, then a pure decision on plain values (unit-testable
+    // without a host, free on the audio thread).
+    const bool gateOnlyDuringTransport =
+        transportGateRawParameter->load (std::memory_order_relaxed) >= 0.5f;
+    const bool triggersAllowed =
+        sid::transport::triggerAllowed (gateOnlyDuringTransport, hostPlaying, hostRecording);
+
     // ------------------------------------------------------------------
-    // 0.4.0 INTERNAL BEAT SCHEDULER: schedule every quarter-note beat of
-    // this block at its exact sample offset (only while the transport
-    // rolls; a stopped timeline produces no triggers).
+    // INTERNAL BEAT SCHEDULER: schedule every quarter-note beat of this
+    // block at its exact sample offset.
+    //   - Gate ON (default): host-anchored only, exactly as in 0.4.0/0.4.1; a
+    //     stopped timeline produces no triggers and resets the schedule.
+    //   - Gate OFF: the effect must operate regardless of the transport, so a
+    //     stopped (or unusable) host timeline hands over to the free-running
+    //     clock. That clock arms one beat AHEAD, so flipping the switch does
+    //     not punch a trigger into the middle of a bar.
     // ------------------------------------------------------------------
     numPendingTriggers_ = 0;
+
+    const auto scheduleBeat = [this] (int sampleOffset)
+    {
+        if (numPendingTriggers_ < kMaxTriggersPerBlock)
+            pendingTriggerSamples_[numPendingTriggers_++] = sampleOffset;
+    };
+
     if (transportActive
         && timeInSamples >= 0.0)
     {
         beatScheduler_.advance (
             (long long) timeInSamples, numSamples, bpm, ppqPosition,
-            [this] (int sampleOffset)
-            {
-                if (numPendingTriggers_ < kMaxTriggersPerBlock)
-                    pendingTriggerSamples_[numPendingTriggers_++] = sampleOffset;
-            });
+            scheduleBeat);
+    }
+    else if (triggersAllowed && ! gateOnlyDuringTransport)
+    {
+        // Gate OFF: free-run. The host schedule is dropped on the way in so a
+        // later resumption cannot emit a beat that belongs to the stopped
+        // timeline.
+        if (! beatScheduler_.hasFreeRunSchedule())
+            beatScheduler_.resetHostSchedule();
+
+        beatScheduler_.advanceFreeRunning (numSamples, bpm, scheduleBeat);
     }
     else
     {
-        beatScheduler_.reset(); // stopped: no stale schedule survives
+        beatScheduler_.reset(); // stopped (gate ON): no stale schedule survives
     }
 
     // ------------------------------------------------------------------
@@ -467,6 +734,36 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     // never per-sample GUI data).
     float inPeak = 0.0f, outPeak = 0.0f;
 
+    // ------------------------------------------------------------------
+    // Live waveform scope: the block is split into up to kFramesPerBlock
+    // equal chunks and each chunk publishes ONE min/max frame of the main
+    // input (the signal the gain is applied to) and of the processed output
+    // (what is heard). The accumulators are seeded with a value no real
+    // sample can produce, so a chunk always owns at least one sample. This
+    // is the only new per-sample work and it is two comparisons per channel.
+    // ------------------------------------------------------------------
+    const int scopeChunk = juce::jmax (1, numSamples / sid::scope::kFramesPerBlock);
+    float scopeInMin  =  sid::scope::kAccumulatorSeed;
+    float scopeInMax  = -sid::scope::kAccumulatorSeed;
+    float scopeOutMin =  sid::scope::kAccumulatorSeed;
+    float scopeOutMax = -sid::scope::kAccumulatorSeed;
+
+    const auto publishScopeChunk = [this, &scopeInMin, &scopeInMax,
+                                        &scopeOutMin, &scopeOutMax] ()
+    {
+        sid::scope::WaveformFrame frame;
+        frame.inputMin  = sid::scope::sanitiseSample (scopeInMin);
+        frame.inputMax  = sid::scope::sanitiseSample (scopeInMax);
+        frame.outputMin = sid::scope::sanitiseSample (scopeOutMin);
+        frame.outputMax = sid::scope::sanitiseSample (scopeOutMax);
+        waveformFifo.push (frame);
+
+        scopeInMin  =  sid::scope::kAccumulatorSeed;
+        scopeInMax  = -sid::scope::kAccumulatorSeed;
+        scopeOutMin =  sid::scope::kAccumulatorSeed;
+        scopeOutMax = -sid::scope::kAccumulatorSeed;
+    };
+
     const long long triggersBefore = duckEngine.getTriggerCount();
     int nextTriggerIdx = 0;
 
@@ -481,6 +778,15 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
     for (int i = 0; i < numSamples; ++i)
     {
+        // Scope chunk boundary: publish the completed chunk before the first
+        // sample of the next one (a no-op for blocks smaller than
+        // kFramesPerBlock, where every sample is its own chunk). A trailing
+        // chunk shorter than scopeChunk is folded into the final publish, so a
+        // block always produces at most kFramesPerBlock frames and no samples
+        // are dropped from the display.
+        if (i > 0 && (i % scopeChunk) == 0 && numSamples - i >= scopeChunk)
+            publishScopeChunk();
+
         // Internal trigger: fire the envelope at the EXACT beat sample.
         if (nextTriggerIdx < numPendingTriggers_
             && pendingTriggerSamples_[nextTriggerIdx] == i)
@@ -521,7 +827,19 @@ void SideChainAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
 
         inPeak  = juce::jmax (inPeak,  std::abs (l), std::abs (r));
         outPeak = juce::jmax (outPeak, std::abs (outL[i]), std::abs (outR[i]));
+
+        // Scope envelopes: channel UNION, so anti-phase stereo cannot cancel
+        // itself into a misleading flat trace.
+        scopeInMin  = juce::jmin (scopeInMin,  l, r);
+        scopeInMax  = juce::jmax (scopeInMax,  l, r);
+        scopeOutMin = juce::jmin (scopeOutMin, outL[i], outR[i]);
+        scopeOutMax = juce::jmax (scopeOutMax, outL[i], outR[i]);
     }
+
+    // Publish the final chunk of the block (blocks are never empty: numSamples
+    // > 0 here, and a zero-length block leaves the accumulators untouched).
+    if (numSamples > 0)
+        publishScopeChunk();
 
     const bool triggerFiredThisBlock =
         duckEngine.getTriggerCount() != triggersBefore;
@@ -567,51 +885,17 @@ juce::AudioProcessorEditor* SideChainAudioProcessor::createEditor()
 //==============================================================================
 void SideChainAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // Versioned state persistence (schema 6 adds optional PumpCurve data).
+    // DEMO/LICENCE STATE IS DELIBERATELY ABSENT FROM THIS SERIALIZATION.
+    // The remaining demo time and the entitlement are NOT written to plugin
+    // state, so saving and reloading a DAW project can neither extend nor
+    // reset a live demo session, and a hand-edited project file can never
+    // grant the full version. The subscription is re-verified from the
+    // server-side account contract (see AuthManager); the demo clock is
+    // per-instance and monotonic (see LicenseGate.h).
     //
-    // JUCE 6.1.3 syncs parameter -> ValueTree lazily (internal ~50 Hz timer;
-    // flushParameterValuesToValueTree() is private). Without a wait, a host
-    // saving state immediately after automation would serialize a STALE
-    // value. Deterministic workaround: briefly pump the message loop so the
-    // timer fires (hosts call getStateInformation on the message thread).
-    if (juce::MessageManager::existsAndIsCurrentThread())
-    {
-        const juce::String paramIds[5] =
-            { "sidechainAmount", "duckLength", "release", "sidechainOffset", "smooth" };
-
-        for (int i = 0; i < 20; ++i) // up to ~0.4 s, far more than one 50 Hz tick
-        {
-            bool allSynced = true;
-
-            for (const auto& id : paramIds)
-            {
-                auto paramChild = parameters.state.getChildWithName ("PARAM");
-                for (int c = 0; c < parameters.state.getNumChildren(); ++c)
-                {
-                    auto child = parameters.state.getChild (c);
-                    if (child.getProperty ("id").toString() == id)
-                    {
-                        paramChild = child;
-                        break;
-                    }
-                }
-
-                const auto atomicValue = parameters.getRawParameterValue (id)->load();
-                const auto treeValue = paramChild.getProperty ("value");
-
-                if (treeValue.isVoid()
-                    || std::abs ((float) (double) treeValue - atomicValue) > 1.0e-4f)
-                    allSynced = false;
-            }
-
-            if (allSynced && i > 0)
-                break;
-
-            juce::MessageManager::getInstance()->runDispatchLoopUntil (20);
-            juce::Timer::callPendingTimersSynchronously();
-        }
-    }
-
+    // The configured JUCE 6.1.3 copyState() synchronously flushes parameter
+    // values before copying. No message-loop pumping/reentrancy is needed,
+    // including when Save Preset immediately follows a control edit.
     auto state = parameters.copyState();
     sid::curve::PumpCurve savedCurve;
     sid::curve::StateMode savedCurveMode;
@@ -623,7 +907,7 @@ void SideChainAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
         versionForSave = stateVersionForSave_;
     }
     // Keep legacy-mode snapshots explicitly at schema 5 instead of emitting
-    // a schema-6 state without its required curve and relying on fallback.
+    // a schema-7 state without its required curve and relying on fallback.
     if (savedCurveMode == sid::curve::StateMode::legacy
         && versionForSave <= kCurrentStateVersion)
         versionForSave = 5;
@@ -760,6 +1044,9 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
     auto* smoothParam = parameters.getParameter ("smooth");
     const bool smoothOk = smoothParam != nullptr
         && paramValueInRange (tree, "smooth", *smoothParam);
+    // The transport gate is a bool parameter: a state from 0.4.1 or earlier has
+    // no such child at all, which is exactly the "missing" case that restores
+    // the documented default (ON).
 
     const float amountRestore = amountOk
         ? *sanitisedParamValue (tree, "sidechainAmount") : 50.0f;
@@ -773,6 +1060,11 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
         ? *sanitisedParamValue (tree, "sidechainOffset") : 0.0f;
     const float smoothRestore = smoothOk
         ? *sanitisedParamValue (tree, "smooth") : 50.0f;
+    auto* transportGateParam = parameters.getParameter ("transportGate");
+    const bool transportGateOk = transportGateParam != nullptr
+        && paramValueInRange (tree, "transportGate", *transportGateParam);
+    const float transportGateRestore = transportGateOk
+        ? *sanitisedParamValue (tree, "transportGate") : 1.0f;   // default ON
 
     // Only a valid schema 6+ PUMPCURVE activates the new shape engine.
     // Missing or malformed curve data selects the legacy envelope deterministically;
@@ -830,6 +1122,9 @@ void SideChainAudioProcessor::setStateInformation (const void* data, int sizeInB
     if (! smoothOk && smoothParam != nullptr)
         smoothParam->setValueNotifyingHost (
             smoothParam->convertTo0to1 (smoothRestore));
+    if (! transportGateOk && transportGateParam != nullptr)
+        transportGateParam->setValueNotifyingHost (
+            transportGateParam->convertTo0to1 (transportGateRestore));
 
     applyReleaseToEngine();    // re-sync legacy envelope with the (sanitised) Shape
     applyDuckLengthToEngine(); // re-sync engine timing with the (sanitised) Duck Length
@@ -848,6 +1143,71 @@ bool SideChainAudioProcessor::setPumpCurvePoints (const sid::curve::Point* point
     }
     publishPumpCurveSnapshot();
     return true;
+}
+
+juce::Result SideChainAudioProcessor::saveUserPreset (
+    const sid::presets::UserPresetLibrary& library, const juce::String& name, juce::File& file)
+{
+    juce::MemoryBlock bytes;
+    getStateInformation (bytes);
+    auto result = library.save (name, juce::ValueTree::readFromData (bytes.getData(), bytes.getSize()), file);
+    if (result.wasOk()) { userPresetName_ = name; userPresetState_ = bytes; }
+    return result;
+}
+
+juce::Result SideChainAudioProcessor::loadUserPreset (
+    const sid::presets::UserPresetLibrary& library, const juce::File& file)
+{
+    juce::String name;
+    juce::ValueTree state;
+    auto result = library.read (file, name, state);
+    if (result.failed()) return result;
+    const auto version = state.getProperty ("stateVersion");
+    if (! version.isInt() || (int) version < 1 || (int) version > kCurrentStateVersion)
+        return juce::Result::fail ("This preset uses an unsupported sound-state version.");
+    const juce::String ids[] = { "sidechainAmount", "duckLength", "release", "sidechainOffset", "smooth", "transportGate" };
+    for (const auto& id : ids)
+    {
+        int count = 0;
+        for (int i = 0; i < state.getNumChildren(); ++i)
+            if (state.getChild (i).getProperty ("id").toString() == id) ++count;
+        if (count > 1 || (count == 1 && ! paramValueInRange (state, id, *parameters.getParameter (id))))
+            return juce::Result::fail ("The preset contains an invalid parameter value.");
+        if (count == 0 && (int) version >= 7)
+            return juce::Result::fail ("The preset is missing a sound parameter.");
+    }
+    if ((int) version >= 6)
+    {
+        sid::curve::PumpCurve curve;
+        if (! readPumpCurve (state, curve))
+            return juce::Result::fail ("The preset contains an invalid curve.");
+    }
+    juce::MemoryBlock bytes;
+    { juce::MemoryOutputStream stream (bytes, false); state.writeToStream (stream); }
+    setStateInformation (bytes.getData(), (int) bytes.getSize()); // reuse all migration rules
+    // Project restoration remains unchanged. Preset selection additionally
+    // brackets host-visible parameter gestures so automation/attachments follow.
+    for (const auto& id : ids)
+    {
+        auto* parameter = parameters.getParameter (id);
+        parameter->beginChangeGesture();
+        parameter->setValueNotifyingHost (parameter->getValue());
+        parameter->endChangeGesture();
+    }
+    updateHostDisplay();
+    userPresetName_ = name;
+    getStateInformation (userPresetState_);
+    return juce::Result::ok();
+}
+
+juce::String SideChainAudioProcessor::getCurrentUserPresetName() const
+{
+    if (userPresetName_.isEmpty()) return {};
+    juce::MemoryBlock current;
+    const_cast<SideChainAudioProcessor*> (this)->getStateInformation (current);
+    const auto a = juce::ValueTree::readFromData (current.getData(), current.getSize());
+    const auto b = juce::ValueTree::readFromData (userPresetState_.getData(), userPresetState_.getSize());
+    return a.isEquivalentTo (b) ? userPresetName_ : juce::String();
 }
 
 //==============================================================================

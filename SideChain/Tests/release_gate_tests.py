@@ -44,7 +44,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 PROJECT = HERE.parent
 GATE = HERE / "release_gate.py"
 PRODUCT = "PumpCurve"
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 
 passed = 0
 failed = 0
@@ -171,10 +171,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         mode = Handler.mode
         if mode == "spa":
             return self._serve_bytes(b"<!doctype html><html>app shell</html>", "text/html")
-        if mode == "real":
-            # Each route serves its own platform's artifact.
+        if mode in ("real", "real_lowercase"):
+            # Each route serves its own platform's artifact. `real_lowercase`
+            # names the header the way an HTTP/2 CDN does ("location").
             self.send_response(302)
-            self.send_header("Location", "/blob-win" if self.path == windows_route else "/blob")
+            self.send_header("location" if mode == "real_lowercase" else "Location",
+                             "/blob-win" if self.path == windows_route else "/blob")
             self.end_headers()
             return
         if mode == "stop":
@@ -327,6 +329,49 @@ def run_tests(work, evidence_root):
     expect_area(proc, data, "macOS installer", "FAIL",
                 "a file that is not a real package is refused")
 
+    # ---- Windows: a stale candidate is not evidence about this one ----
+    print("")
+    print("-- Windows artifact provenance")
+    evidence = work / "windows-evidence"
+    old_win = evidence / "run13-20261011" / "windows-artifacts"
+    old_module = old_win / ("%s.vst3" % PRODUCT) / "Contents" / "x86_64-win" / ("%s.vst3" % PRODUCT)
+    old_module.parent.mkdir(parents=True)
+    old_module.write_bytes(b"MZ a module from an older candidate")
+    (old_win / "RUN-MANIFEST.json").write_text(json.dumps({"version": "0.4.1"}), encoding="utf-8")
+
+    # Discovered implicitly (no --windows-dir): the 0.4.1 build says nothing about
+    # the 0.5.0 candidate, so it must be NOT_TESTED, not an identity FAIL.
+    proc, data = run_gate(["--mode", "beta", "--staged-dir", staged, "--macos-dir", macos,
+                           "--host-acceptance", acceptance, "--release-notes", notes_file,
+                           "--evidence-root", evidence, "--offline"], work / "t10.json")
+    expect_area(proc, data, "Windows artifacts", "NOT_TESTED",
+                "an older candidate's Windows build is reported NOT_TESTED, not FAIL")
+    if data is not None:
+        detail = [r["detail"] for r in data["results"] if r["area"] == "Windows artifacts"]
+        check(any("0.4.1" in d and VERSION in d for d in detail),
+              "the detail names both the stale version and the candidate version")
+
+    # Supplied explicitly: the caller asked for THAT directory to be judged, so a
+    # version mismatch stays a FAIL instead of being silently excused.
+    proc, data = run_gate(["--mode", "beta", "--staged-dir", staged, "--macos-dir", macos,
+                           "--host-acceptance", acceptance, "--release-notes", notes_file,
+                           "--windows-dir", old_win, "--offline"], work / "t11.json")
+    expect_area(proc, data, "Windows artifacts", "FAIL",
+                "an explicitly supplied wrong-version Windows build is refused")
+
+    # A manifest that MATCHES the candidate cannot excuse a broken module: the
+    # browser-installed manifest must not become a way around the module check.
+    same_win = work / "windows-same-version"
+    same_module = same_win / ("%s.vst3" % PRODUCT) / "Contents" / "x86_64-win" / ("%s.vst3" % PRODUCT)
+    same_module.parent.mkdir(parents=True)
+    same_module.write_bytes(b"MZ not a real PE image")
+    (same_win / "RUN-MANIFEST.json").write_text(json.dumps({"version": VERSION}), encoding="utf-8")
+    proc, data = run_gate(["--mode", "beta", "--staged-dir", staged, "--macos-dir", macos,
+                           "--host-acceptance", acceptance, "--release-notes", notes_file,
+                           "--windows-dir", same_win, "--offline"], work / "t12.json")
+    expect_area(proc, data, "Windows artifacts", "FAIL",
+                "a matching manifest cannot hide a module that is not a PE image")
+
     # ---- host acceptance honesty ----
     print("")
     print("-- host acceptance claims")
@@ -404,6 +449,10 @@ def run_tests(work, evidence_root):
     proc, data = live("real", windows_dir=win_dir)
     expect_area(proc, data, "distribution", "PASS",
                 "routes that serve their own platform's artifact with a matching hash pass")
+
+    proc, data = live("real_lowercase", windows_dir=win_dir)
+    expect_area(proc, data, "distribution", "PASS",
+                "a lower-case 'location' header (HTTP/2 CDN) is a redirect like any other")
 
     proc, data = live("stop")
     expect_area(proc, data, "distribution", "FAIL",

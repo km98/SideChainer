@@ -205,7 +205,10 @@ fi
 # ---------------------------------------------------------------------------
 banner "2 - FOCUSED PUMPCURVE SUITES"
 # ---------------------------------------------------------------------------
-FOCUSED_SUITES="PumpCurvePresetStateTests PumpCurveDspTests"
+# 0.5.0 adds the demo-session/entitlement suite to the focused stage: it is
+# the headline behaviour of this release (15-minute demo, full version from a
+# verified subscription or licence key) and it drives the real audio path.
+FOCUSED_SUITES="LicenseDemoTests UserPresetTests PumpCurvePresetStateTests PumpCurveDspTests"
 FOCUSED_TOTALS=""
 for suite in $FOCUSED_SUITES; do
     if ! stage_allowed "focused suite $suite"; then
@@ -236,13 +239,24 @@ if stage_allowed "full regression"; then
             --out-dir "$OUT_DIR/test-build" >"$log" 2>&1; then
         per_suite="$(awk '/^ [A-Za-z0-9]+$/ {name=$1; next} /checks passed/ {if (name != "") {printf "%s %s\n", name, $0; name=""}}' "$log")"
         printf '%s\n' "$per_suite" | sed 's/^/  /'
-        suite_count="$(printf '%s\n' "$per_suite" | grep -c . || true)"
+
+        # The runner's own --list is the expected set, so this stage cannot go
+        # green on a short run and adding a suite never means editing a count by
+        # hand. A suite that compiles but crashes, times out or is skipped
+        # silently reports no total, and is caught as MISSING here.
+        expected_list="$("$SCRIPT_DIR/run_all.sh" --list | grep . | sort)"
+        reported_list="$(printf '%s\n' "$per_suite" | awk 'NF {print $1}' | sort)"
+        missing_suites="$(comm -23 <(printf '%s\n' "$expected_list") <(printf '%s\n' "$reported_list"))"
+        suite_count="$(printf '%s\n' "$reported_list" | grep -c . || true)"
+        expected_count="$(printf '%s\n' "$expected_list" | grep -c . || true)"
         totals="$(grep -oE '[0-9]+/[0-9]+ checks passed' "$log" | awk -F'[/ ]' '{ok+=$1; all+=$2} END {print ok"/"all}')"
         fail_lines="$(grep -c '\[FAIL\]' "$log" || true)"
-        if [ "$suite_count" -ge 9 ] && [ "$fail_lines" = "0" ] && grep -q 'ALL SUITES PASSED' "$log"; then
+        if [ "$suite_count" -eq "$expected_count" ] && [ -z "$missing_suites" ] \
+           && [ "$fail_lines" = "0" ] && grep -q 'ALL SUITES PASSED' "$log"; then
             record "full regression" "PASS" "$suite_count suites, $totals checks, 0 FAIL lines"
         else
-            record "full regression" "FAIL" "$suite_count suites, $totals checks, $fail_lines FAIL lines (see $log)"
+            [ -n "$missing_suites" ] && printf '  MISSING suites: %s\n' "$(printf '%s\n' "$missing_suites" | tr '\n' ' ')"
+            record "full regression" "FAIL" "$suite_count/$expected_count suites, $totals checks, $fail_lines FAIL lines (see $log)"
             FAILED_REQUIRED=1
             abort_to_summary "full regression"
         fi

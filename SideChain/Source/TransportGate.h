@@ -1,23 +1,35 @@
 /*
-    SideChainer - transport gating (0.4.0).
+    PumpCurve - transport gating (0.4.0; user switch restored in 0.4.2).
 
     Pure, host-independent decision logic:
 
         transportActive = hostPlaying OR hostRecording
+        triggerAllowed  = NOT gateEnabled OR transportActive
 
-    In the 0.4.0 internal-trigger architecture the beat scheduler runs only
-    while the transport is active (the DAW timeline cannot advance while
-    stopped, so stopped playback has no musical meaning). The former
-    "sidechain while stopped" override was removed with the external
-    sidechain bus: there is no signal to analyse while stopped, and a
-    stopped timeline cannot advance a beat grid.
+    `transportActive` is the raw host fact and is unchanged since 0.4.0: the
+    processor feeds it from AudioPlayHead::getCurrentPosition() (isPlaying /
+    isRecording; on this JUCE version isRecording implies isPlaying, so the OR
+    is exactly the documented condition).
 
-    The processor feeds this from AudioPlayHead::getCurrentPosition()
-    (isPlaying / isRecording; on this JUCE version isRecording implies
-    isPlaying, so the OR is still exactly the documented condition).
+    `triggerAllowed` adds the user-facing switch that 0.4.2 restores to the
+    interface as "ACTIVE ONLY DURING PLAY/REC":
 
-    Kept as a free function on plain values so it is unit-testable without
-    a host and free on the audio thread.
+      gate ENABLED (default) -> internal beats are scheduled only while the
+          host transport plays or records; a stopped timeline produces no
+          triggers (0.4.0 behaviour, now a visible choice again).
+
+      gate DISABLED -> the beat clock free-runs at the host tempo whether or
+          not the transport rolls, so the effect operates in a stopped DAW.
+
+    The switch is deliberately NOT the pre-0.4.0 "sidechainWhileStopped"
+    parameter restored under its old id: that parameter encoded the INVERSE
+    condition with the opposite default, so re-using its id would silently
+    flip behaviour for sessions saved by 0.3.x. The preference itself lives in
+    the processor's `transportGate` parameter (see PluginProcessor.h), which
+    serializes with plugin state and defaults to ON for older sessions.
+
+    Kept as free functions on plain values so they are unit-testable without a
+    host and free on the audio thread.
 */
 
 #pragma once
@@ -29,6 +41,14 @@ namespace sid::transport
 inline bool transportActive (bool hostPlaying, bool hostRecording) noexcept
 {
     return hostPlaying || hostRecording;
+}
+
+// True when the user-facing switch allows the internal beat clock to run.
+inline bool triggerAllowed (bool gateOnlyDuringTransport,
+                            bool hostPlaying,
+                            bool hostRecording) noexcept
+{
+    return ! gateOnlyDuringTransport || transportActive (hostPlaying, hostRecording);
 }
 
 } // namespace sid::transport

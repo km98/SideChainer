@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="ScPrd" name="SideChain" projectType="audioplug" version="0.5.0"
+<JUCERPROJECT id="ScPrd" name="SideChain" projectType="audioplug" version="0.5.1"
               bundleIdentifier="com.musicprod.sidechain" includeBinaryInAppConfig="1"
               buildVST="0" buildVST3="1" buildAU="1" buildAUv3="0" buildStandalone="0"
               buildRTAS="0" buildAAX="0" pluginName="PumpCurve"

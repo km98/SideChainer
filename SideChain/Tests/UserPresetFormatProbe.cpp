@@ -108,7 +108,7 @@ int main (int argc, char** argv)
     if (! instance) return 1;
     juce::PluginDescription desc; instance->fillInPluginDescription (desc);
     std::printf ("Actual product: %s version %s format %s\n", desc.name.toRawUTF8(), desc.version.toRawUTF8(), desc.pluginFormatName.toRawUTF8());
-    check (desc.name.contains ("PumpCurve") && desc.version == "0.5.0", "exact wrapper is PumpCurve 0.5.0");
+    check (desc.name.contains ("PumpCurve") && desc.version == "0.5.1", "exact wrapper is PumpCurve 0.5.1");
     juce::MemoryBlock native; instance->getStateInformation (native);
     auto initial = extract (native, kind); check (initial.hasType ("PARAMS"), "actual wrapper exposes established PARAMS sound state");
     if (! initial.isValid()) return 1;

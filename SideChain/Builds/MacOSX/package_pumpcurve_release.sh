@@ -25,7 +25,7 @@
 #                      SideChain.vst3 (e.g. SideChain/Tests/validate_all.sh's
 #                      out-dir/products)
 #   --out-dir DIR      where the artifacts are written (default: a fresh temp dir)
-#   --version X.Y.Z    version for the file names and the package (default: 0.5.0)
+#   --version X.Y.Z    version for the file names and the package (default: 0.5.1)
 #   --dmg              also build a signed DMG around the PKG
 #   --readme FILE      customer read-me copied into the DMG
 # Exit code: 0 only when every gate passed.
@@ -48,7 +48,7 @@ done
 
 PRODUCTS=""
 OUT_DIR=""
-VERSION="0.5.0"
+VERSION="0.5.1"
 MAKE_DMG=0
 README=""
 INSTALLER_IDENT="Developer ID Installer: Martin Kadziolka (3A4R5EKM7V)"

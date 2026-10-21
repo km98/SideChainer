@@ -504,6 +504,9 @@ int main()
         // A successful check on the same plugin reports the published version
         // without touching the audio path either.
         MockUpdateTransport* okMock = new MockUpdateTransport();
+        // The real plugin checks with its own version, so the catalog must name a
+        // version newer than any release this test will ever be built as.
+        okMock->latestVersion = "99.0.0";
         SideChainAudioProcessor proc2 (
             std::unique_ptr<sid::auth::AuthTransport> (new SilentAuthTransport()),
             tempFile ("auth2.json").getFullPathName(),

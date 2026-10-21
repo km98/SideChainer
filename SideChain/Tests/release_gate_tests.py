@@ -44,7 +44,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 PROJECT = HERE.parent
 GATE = HERE / "release_gate.py"
 PRODUCT = "PumpCurve"
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 passed = 0
 failed = 0
@@ -340,7 +340,7 @@ def run_tests(work, evidence_root):
     (old_win / "RUN-MANIFEST.json").write_text(json.dumps({"version": "0.4.1"}), encoding="utf-8")
 
     # Discovered implicitly (no --windows-dir): the 0.4.1 build says nothing about
-    # the 0.5.0 candidate, so it must be NOT_TESTED, not an identity FAIL.
+    # the current candidate, so it must be NOT_TESTED, not an identity FAIL.
     proc, data = run_gate(["--mode", "beta", "--staged-dir", staged, "--macos-dir", macos,
                            "--host-acceptance", acceptance, "--release-notes", notes_file,
                            "--evidence-root", evidence, "--offline"], work / "t10.json")

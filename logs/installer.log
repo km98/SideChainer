@@ -1,0 +1,74 @@
+== building the installer ==
+Inno Setup 6 Command-Line Compiler
+Copyright (C) 1997-2026 Jordan Russell. All rights reserved.
+Portions Copyright (C) 2000-2026 Martijn Laan. All rights reserved.
+Portions Copyright (C) 2001-2004 Alex Yackimoff. All rights reserved.
+https://www.innosetup.com
+
+Compiler engine version: Inno Setup 6.7.1
+Non-commercial use only
+
+Preprocessing
+   Reading file: C:\Program Files (x86)\Inno Setup 6\ISPPBuiltins.iss
+Parsing [Setup] section, line 41
+Parsing [Setup] section, line 42
+Parsing [Setup] section, line 43
+Parsing [Setup] section, line 44
+Parsing [Setup] section, line 45
+Parsing [Setup] section, line 46
+Parsing [Setup] section, line 47
+Parsing [Setup] section, line 48
+Parsing [Setup] section, line 49
+Parsing [Setup] section, line 50
+Parsing [Setup] section, line 51
+Parsing [Setup] section, line 53
+Parsing [Setup] section, line 54
+Parsing [Setup] section, line 55
+Parsing [Setup] section, line 56
+Parsing [Setup] section, line 57
+Parsing [Setup] section, line 58
+Parsing [Setup] section, line 59
+Parsing [Setup] section, line 60
+Parsing [Setup] section, line 61
+Parsing [Setup] section, line 64
+Parsing [Setup] section, line 65
+Reading file (WizardImageFile)
+Reading file (WizardSmallImageFile)
+Preparing Setup program executable
+   Verification successful
+   Updating icons (Setup.e32)
+   Updating version info (Setup.e32)
+Determining language code pages
+Parsing [Languages] section, line 68
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+   Messages in script file
+Reading default messages from Default.isl
+Parsing [Languages] section, line 68
+   Reading file: C:\Program Files (x86)\Inno Setup 6\Default.isl
+Parsing [LangOptions], [Messages], and [CustomMessages] sections
+   Messages in script file
+Reading [Code] section
+Parsing [Files] section, line 71
+Parsing [Files] section, line 75
+   Reading version info: D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\installer\cleanup_legacy.ps1
+Compiling [Code] section
+Creating setup files
+   Verification successful
+   Updating icons (Setup.exe)
+   Compressing: D:\a\_temp\artifacts\PumpCurve.vst3\Contents\x86_64-win\PumpCurve.vst3
+   Compressing: D:\a\SideChainer\SideChainer\SideChain\Builds\Windows\installer\cleanup_legacy.ps1
+   Compressing Setup program executable
+   Updating version info (Setup.exe)
+   Updating manifest (Setup.exe)
+
+
+Successful compile (1.469 sec). Resulting Setup program filename is:
+D:\a\_temp\artifacts\PumpCurve-0.5.2-Windows-x64-Setup.exe
+== hashing the installer ==
+SHA256 hash of D:\a\_temp\artifacts\PumpCurve-0.5.2-Windows-x64-Setup.exe:
+056d417a87d350fc0ebbf50ab73166e02aa56800fd65e8c99ceac32cf48f253a
+CertUtil: -hashfile command completed successfully.
+== signature state (unsigned until a certificate is supplied) ==
+NotSigned
+Done. The installer still has to pass installer\test_install_uninstall.ps1
+and the DAW host tests before it is published.

@@ -1,0 +1,20 @@
+== PumpCurve Windows build self-check ==
+  jucer:            D:\a\SideChainer\SideChainer\SideChain\SideChain.jucer
+  Source files:     22
+  pluginName:          PumpCurve                (ok)
+  pluginCode:          SdCh                     (ok)
+  companyName:         Music-Prod               (ok)
+  version:             0.5.2                    (ok)
+  bundleIdentifier:    com.musicprod.sidechain  (ok)
+  projectType:         audioplug                (ok)
+  buildVST3:           1                        (ok)
+  present:          tools/stage_windows_vst3.py
+  present:          juce/verify_juce_tree.py
+  present:          juce/JUCE-6.1.3-patched-overlay.tar.gz
+  present:          juce/JUCE-6.1.3-patched-modules.sha256
+  present:          installer/PumpCurve.iss
+  present:          installer/verify_install.ps1
+  present:          installer/build_installer.cmd
+  JUCE tree:        not supplied (pass --juce-root to verify it)
+
+SELF-CHECK: PASS

@@ -12,7 +12,7 @@ REM        Builds\Windows\artifacts (CI keeps artifacts outside the checkout).
 setlocal enabledelayedexpansion
 set HERE=%~dp0
 set VERSION=%~1
-if "%VERSION%"=="" set VERSION=0.5.1
+if "%VERSION%"=="" set VERSION=0.5.2
 set BUNDLE=%~2
 if "%BUNDLE%"=="" set BUNDLE=%HERE%..\artifacts\PumpCurve.vst3
 set BUNDLE=%BUNDLE:"=%

@@ -44,7 +44,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 PROJECT = HERE.parent
 GATE = HERE / "release_gate.py"
 PRODUCT = "PumpCurve"
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 
 passed = 0
 failed = 0

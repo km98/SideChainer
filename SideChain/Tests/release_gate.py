@@ -43,7 +43,7 @@ import urllib.parse
 import urllib.request
 
 PRODUCT = "PumpCurve"
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 BUNDLE_ID = "com.musicprod.sidechain"
 AU_TUPLE = ("aufx", "SdCh", "Musc")
 TEAM_ID = "3A4R5EKM7V"

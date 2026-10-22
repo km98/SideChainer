@@ -34,7 +34,7 @@ permissions:
 
 env:
   PRODUCT: PumpCurve
-  VERSION: 0.5.1
+  VERSION: 0.5.2
 
 jobs:
   windows-vst3:

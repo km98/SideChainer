@@ -620,6 +620,14 @@ bool AuthManager::loadPersistedToken()
         entitlementsVerifiedAtMs = (subscribed || productEntitled) ? verifiedAt : 0.0;
         licenseVerifiedAtMs      = (cachedLicensed && licenceIsFresh) ? licenseVerifiedAt : 0.0;
 
+        // A Music-Prod+ full version that the cache WOULD have held, had it not
+        // aged past its window, is reported as unconfirmed rather than as a
+        // plain "not active": the account may well still be a member.
+        membershipLapse = (cachedSubscribed && cachedEntitled && ! entitledIsFresh
+                           && ! (cachedLicensed && licenceIsFresh))
+                              ? MembershipLapse::unconfirmed
+                              : MembershipLapse::none;
+
         // A licence the SERVER confirmed for this ACCOUNT AND THIS DEVICE may be
         // reflected in the UI after a restart, within its own window, so the
         // user sees which route is holding the full version. It is only ever set
@@ -744,6 +752,7 @@ void AuthManager::applyPollResult (const PollResponse& r)
             // A new token has not been entitlement-checked yet; the cache must
             // not keep a previous answer alive through the sign-in change.
             entitlementsVerifiedAtMs = 0.0;
+            membershipLapse = MembershipLapse::none;   // a new account, nothing withdrawn yet
             state       = State::signedIn;
             deviceCode.clear();
             userCode.clear();
@@ -800,6 +809,10 @@ void AuthManager::applyEntitlements (const EntitlementsResponse& e)
 
         if (e.ok)
         {
+            // Whether Music-Prod+ was what held the full version before this
+            // answer - so an answer that withdraws it can be named as such.
+            const bool membershipHeldFull = state == State::signedIn && subscribed && productEntitled;
+
             // The PRODUCT-SCOPED answer, not the raw membership. The server has
             // already combined "subscription active" with "subscription covers
             // this product" and "a licence key is active for this product".
@@ -867,6 +880,17 @@ void AuthManager::applyEntitlements (const EntitlementsResponse& e)
                 licenseMessage = "This licence is no longer active on your account.";
             }
 
+            // A full version that Music-Prod+ held (or held until the offline
+            // window closed) and that the server now withdraws BECAUSE there is
+            // no membership any more is an ENDED membership: the INFO page says
+            // so. A membership that is still active but not confirmed for
+            // PumpCurve is a different state with its own guidance (see
+            // subscriptionNotValidForProduct). Any grant clears it.
+            if (productEntitled || isFullEntitlementLocked() || subscribed)
+                membershipLapse = MembershipLapse::none;
+            else if (membershipHeldFull || membershipLapse != MembershipLapse::none)
+                membershipLapse = MembershipLapse::ended;
+
             // Only a server answer may refresh the cache, and it records the
             // moment the SERVER answered - never a local guess. The licence route
             // gets its own stamp because it is cached for a shorter window.
@@ -895,12 +919,18 @@ void AuthManager::applyEntitlements (const EntitlementsResponse& e)
             subscribed = false;
             productEntitled = false;
             entitlementsVerifiedAtMs = 0.0;
+            membershipLapse = MembershipLapse::none;
             state      = State::signedOut;
             clearLocalToken();
         }
-        // Network/server error: keep the last known cached state. A subscriber
-        // who was already verified is never silently downgraded by a failed
-        // request; if nothing was ever verified, nothing is granted.
+        else
+        {
+            // Network/server error: keep the last known cached state while it is
+            // inside its offline window - a verified subscriber is never
+            // downgraded by one failed request - and withdraw it once the window
+            // has closed. If nothing was ever verified, nothing is granted.
+            enforceOfflineWindowsLocked ((double) juce::Time::currentTimeMillis());
+        }
     }
 
     fireEntitlementChanged();
@@ -937,6 +967,77 @@ bool AuthManager::fullVersionViaSubscription() const
     // The RAW membership, so naming a style "Music-Prod+" cannot be claimed by a
     // licence-only user who happens to be signed in.
     return state == State::signedIn && subscribed && productEntitled;
+}
+
+AuthManager::MembershipLapse AuthManager::getMembershipLapse() const
+{
+    const std::lock_guard<std::mutex> lock (mutex);
+    return membershipLapse;
+}
+
+bool AuthManager::enforceOfflineWindowsLocked (double nowMs)
+{
+    // The launch rule (loadPersistedToken) applied to a running instance: each
+    // grant is honoured only while the server's answer behind it is inside its
+    // window. Only ever removes trust; a later server answer restores it.
+    const bool membershipHeldFull = state == State::signedIn && subscribed && productEntitled;
+    const bool licensed           = licenseStatus == LicenseStatus::active;
+    const bool answerExpired      = sid::license::runningGrantExpired (
+                                        entitlementsVerifiedAtMs, nowMs, sid::license::kEntitlementGraceSeconds);
+    const bool licenceExpired     = sid::license::runningGrantExpired (
+                                        licenseVerifiedAtMs, nowMs, sid::license::kLicenseActivationGraceSeconds);
+    bool changed = false;
+
+    // A licence - verified at launch, in this session or through the account -
+    // is DEVICE-bound and has the shorter window.
+    if (licensed && licenceExpired)
+    {
+        licenseStatus  = LicenseStatus::notChecked;
+        licenseMessage = "PumpCurve could not re-check your licence with Music-Prod for 7 days, "
+                         "so it is back in demo mode. Connect to the internet and it is checked "
+                         "again automatically.";
+        changed = true;
+    }
+
+    // The product answer lapses with its own window, and - exactly as at launch
+    // - with the licence window when a licence was part of that answer.
+    if (productEntitled && (answerExpired || (licensed && licenceExpired)))
+    {
+        productEntitled = false;
+        changed = true;
+    }
+
+    if (subscribed && answerExpired)
+    {
+        subscribed = false;
+        changed = true;
+    }
+
+    if (membershipHeldFull && ! isFullEntitlementLocked())
+        membershipLapse = MembershipLapse::unconfirmed;
+
+    return changed;
+}
+
+void AuthManager::enforceOfflineWindows()
+{
+    bool withdrawn = false;
+    {
+        const std::lock_guard<std::mutex> lock (mutex);
+        withdrawn = enforceOfflineWindowsLocked ((double) juce::Time::currentTimeMillis());
+    }
+    if (withdrawn)
+        fireEntitlementChanged();
+}
+
+void AuthManager::backdateVerificationForTesting (double entitlementMillisecondsAgo,
+                                                  double licenceMillisecondsAgo)
+{
+    const std::lock_guard<std::mutex> lock (mutex);
+    const double nowMs = (double) juce::Time::currentTimeMillis();
+    entitlementsVerifiedAtMs = nowMs - juce::jmax (0.0, entitlementMillisecondsAgo);
+    if (licenceMillisecondsAgo >= 0.0)
+        licenseVerifiedAtMs = nowMs - licenceMillisecondsAgo;
 }
 
 AuthManager::LicenseStatus AuthManager::getLicenseStatus() const
@@ -995,6 +1096,7 @@ void AuthManager::applyLicenseResult (const LicenseResponse& answer)
             productEntitled = false;
             entitlementsVerifiedAtMs = 0.0;
             entitlementCheckInFlight = false;
+            membershipLapse = MembershipLapse::none;
             state = State::signedOut;
             clearLocalToken();
         }
@@ -1287,10 +1389,17 @@ void AuthManager::run()
         bool doLogout = false;
         bool doEntitlements = false;
         bool doLicense = false;
+        bool withdrawn = false;
         juce::String licenseKey;
 
         {
             const std::lock_guard<std::mutex> lock (mutex);
+
+            // Every wake (at least once a minute) re-applies the offline windows,
+            // so an instance that stays open without reaching Music-Prod loses a
+            // grant when its window closes - not only at the next launch.
+            withdrawn = enforceOfflineWindowsLocked ((double) juce::Time::currentTimeMillis());
+
             doLogout              = logoutRequested;
             logoutRequested       = false;
             doEntitlements        = entitlementsRequested;
@@ -1310,6 +1419,9 @@ void AuthManager::run()
                 doEntitlements = true;
         }
 
+        if (withdrawn)
+            fireEntitlementChanged();
+
         if (doLogout)
         {
             if (currentToken.isNotEmpty())
@@ -1323,6 +1435,7 @@ void AuthManager::run()
                 productEntitled = false;
                 entitlementsVerifiedAtMs = 0.0;
                 entitlementCheckInFlight = false;   // nothing is being checked now
+                membershipLapse = MembershipLapse::none;
                 state      = State::signedOut;
                 clearLocalToken();
             }

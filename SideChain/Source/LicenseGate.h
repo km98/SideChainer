@@ -80,9 +80,11 @@
 
     DEACTIVATION, IN ONE SENTENCE: releasing a device in the account area is
     effective at that device's next successful entitlement check - every launch
-    while online, and no later than 7 days after the last one if it never comes
-    back online. Nothing local can restore it, because the grant is re-derived
-    from the server's answer rather than from a stored flag.
+    and every hour while online, and no later than 7 days after the last one if
+    it never comes back online, whether or not the DAW is restarted. The end of
+    a Music-Prod+ membership is handled the same way, within 14 days offline.
+    Nothing local can restore either, because the grant is re-derived from the
+    server's answer rather than from a stored flag.
 */
 
 #pragma once
@@ -160,10 +162,13 @@ inline constexpr double kLicenseActivationGraceSeconds = 7.0 * 24.0 * 60.0 * 60.
 
 /** How often a signed-in instance that is RUNNING re-checks its entitlement
     with the server. A launch always re-checks; this bounds the staleness of a
-    DAW session that stays open for days, which is what makes a deactivation
-    land without waiting for the next launch. The request is made on the auth
-    thread, never on the audio thread. */
-inline constexpr double kEntitlementRefreshIntervalSeconds = 6.0 * 60.0 * 60.0;
+    DAW session that stays open for days, which is what makes a deactivation -
+    or the end of a Music-Prod+ membership - land without waiting for the next
+    launch. Hourly: an ended membership returns the plugin to the demo within
+    the hour while online, at one small request per hour per signed-in
+    instance. The request is made on the auth thread, never on the audio
+    thread. */
+inline constexpr double kEntitlementRefreshIntervalSeconds = 60.0 * 60.0;
 
 //==============================================================================
 /** "MM:SS" for the demo countdown (hours roll into minutes, so a value above
@@ -300,12 +305,33 @@ inline bool cachedLicenseActivationIsFresh (double verifiedAtMs, double nowMs) n
     return ageSeconds >= 0.0 && ageSeconds <= kLicenseActivationGraceSeconds;
 }
 
+/** Has a grant held by a RUNNING instance outlived its offline window?
+
+    The running counterpart of cachedEntitlementIsFresh: the auth thread asks it
+    on every wake and after every failed check, so an instance that stays open
+    offline loses the full version when the window closes instead of keeping it
+    until the next launch. `verifiedAtMs <= 0` (never verified) has expired.
+
+    Unlike the launch rule, an answer stamped LATER than now does not expire
+    here: the instance received that answer itself, so a negative age only
+    means the clock was corrected backwards since (an NTP step right after a
+    check would otherwise send a member to the demo for an hour). Winding the
+    clock back to stretch the window is the residue documented above, and the
+    next launch still applies the strict rule. */
+inline bool runningGrantExpired (double verifiedAtMs, double nowMs, double windowSeconds) noexcept
+{
+    if (! (verifiedAtMs > 0.0))
+        return true;
+
+    return (nowMs - verifiedAtMs) / 1000.0 > windowSeconds;
+}
+
 /** How long an AUTOMATIC (lifecycle-triggered) entitlement refresh is held off
 after the previous attempt.
 
     Separate from both of the other intervals, because it answers a different
     question:
-      * `kEntitlementRefreshIntervalSeconds` (6h) bounds how STALE a running
+      * `kEntitlementRefreshIntervalSeconds` (1h) bounds how STALE a running
         instance's answer may become;
       * this one bounds how often the plugin may ASK because the user did
         something in the UI (opened the page, brought the editor back).
@@ -326,7 +352,7 @@ inline constexpr double kEntitlementAutoRefreshMinIntervalSeconds = 60.0;
     0 = none in this session). A clock that moved BACKWARDS is not evidence that
     the interval elapsed, so it does not authorise a request - unlike
     `entitlementRefreshDue` below, where the fail-safe direction is to refresh:
-    missing a refresh costs nothing (the 6-hour rule and the manual control both
+    missing a refresh costs nothing (the hourly rule and the manual control both
     still apply), while trusting a rewound clock would only cause requests. */
 inline bool entitlementAutoRefreshDue (double lastAttemptMs, double nowMs,
                                        double minIntervalSeconds =
@@ -349,7 +375,7 @@ inline bool entitlementAutoRefreshDue (double lastAttemptMs, double nowMs,
     deactivated while the DAW is running would keep the full version until the
     next launch (and, offline, until the grace window expired).
 
-    Pure so the timing rule is tested without waiting six hours.
+    Pure so the timing rule is tested without waiting an hour.
     `verifiedAtMs <= 0` means "never verified", which is always due. */
 inline bool entitlementRefreshDue (double verifiedAtMs, double nowMs,
                                    double intervalSeconds = kEntitlementRefreshIntervalSeconds) noexcept

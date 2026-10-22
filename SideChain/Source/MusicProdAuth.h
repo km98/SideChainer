@@ -473,6 +473,36 @@ public:
     bool fullVersionViaLicense() const;
     bool fullVersionViaSubscription() const;
 
+    /**
+        Why a Music-Prod+ full version that this instance HAD has gone back to
+        the demo, for the INFO page to say so instead of a plain "not active":
+          * ended       - the server answered that the account is no longer
+                          entitled (the membership ended or was cancelled);
+          * unconfirmed - no server answer for longer than the offline window
+                          (kEntitlementGraceSeconds), so the cached grant expired.
+        `none` while the full version is held, and after any grant, sign-in or
+        sign-out. Never grants anything: it only describes a withdrawal.
+    */
+    enum class MembershipLapse { none, ended, unconfirmed };
+    MembershipLapse getMembershipLapse() const;
+
+    /**
+        Withdraw every grant whose offline window has closed: the Music-Prod+ /
+        product answer after kEntitlementGraceSeconds and a licence after
+        kLicenseActivationGraceSeconds without a fresh server answer. The same
+        rule loadPersistedToken() applies at launch, applied to a RUNNING
+        instance - the auth thread calls it on every wake and after every failed
+        check, so a DAW session left open offline cannot keep the full version
+        on an old answer. Only ever removes trust.
+    */
+    void enforceOfflineWindows();
+
+    /** Test hook: pretend the server's last entitlement answer (and, when
+        `licenceMillisecondsAgo` >= 0, the licence verification) arrived that
+        long ago, so the offline windows can be exercised without waiting days. */
+    void backdateVerificationForTesting (double entitlementMillisecondsAgo,
+                                         double licenceMillisecondsAgo = -1.0);
+
     // The single question the audio gate cares about: does EITHER route grant
     // the full version?
     //   A) a server-verified licence key, or
@@ -522,6 +552,8 @@ private:
     /** Caller holds the mutex. False when there is no account token to bind a key to. */
     bool licenseActivationPossibleLocked() const;
     bool isFullEntitlementLocked() const;
+    /** Caller holds the mutex. True when something was withdrawn. */
+    bool enforceOfflineWindowsLocked (double nowMs);
     void fireEntitlementChanged();
 
     /**
@@ -595,6 +627,10 @@ private:
     // SHORTER window (kLicenseActivationGraceSeconds): a deactivated computer
     // must stop working within days, not weeks.
     double licenseVerifiedAtMs = 0.0;
+
+    // Why a held Music-Prod+ full version went back to the demo (see
+    // getMembershipLapse()).
+    MembershipLapse membershipLapse = MembershipLapse::none;
 
     // Last value handed to onEntitlementChanged, so the callback only fires
     // on a real change.

@@ -1556,7 +1556,7 @@ int main()
             check (sid::license::kEntitlementAutoRefreshMinIntervalSeconds > 0.0
                        && sid::license::kEntitlementAutoRefreshMinIntervalSeconds
                               < sid::license::kEntitlementRefreshIntervalSeconds,
-                   "the lifecycle debounce is real and shorter than the 6-hour staleness rule");
+                   "the lifecycle debounce is real and shorter than the hourly staleness rule");
 
             const double now = 1.0e12;
             check (sid::license::entitlementAutoRefreshDue (0.0, now),
@@ -1859,6 +1859,230 @@ int main()
 
         authPathP.deleteFile();
         authPathP.getSiblingFile ("device_id.txt").deleteFile();
+    }
+
+    // ==================================================================
+    // 17. A running instance: an ended or unconfirmed membership -> demo
+    // ==================================================================
+    printf ("\n17. Membership lapse and the offline windows in a running instance\n");
+    {
+        using LS    = sid::auth::AuthManager::LicenseStatus;
+        using Lapse = sid::auth::AuthManager::MembershipLapse;
+        constexpr double kDayMs = 24.0 * 60.0 * 60.0 * 1000.0;
+        auto authPathL = tempFile ("lapse.json");
+
+        // (a) The pure rule the auth thread applies.
+        {
+            const double now = 1.0e12;
+            const double w   = sid::license::kEntitlementGraceSeconds;
+            check (sid::license::runningGrantExpired (0.0, now, w),
+                   "a grant that was never verified has expired");
+            check (! sid::license::runningGrantExpired (now - (w - 3600.0) * 1000.0, now, w),
+                   "a grant inside its window has not expired");
+            check (sid::license::runningGrantExpired (now - (w + 3600.0) * 1000.0, now, w),
+                   "a grant older than its window has expired");
+            check (! sid::license::runningGrantExpired (now + 5000.0, now, w),
+                   "a clock corrected backwards right after a check does not end the grant");
+            check (sid::license::kEntitlementRefreshIntervalSeconds <= 3600.0,
+                   "a running, online instance re-checks its membership at least hourly");
+        }
+
+        // (b) A member who stays offline keeps the full version for 14 days,
+        //     then goes back to the demo - without a restart.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            auto& am = proc.getAuthManager();
+            check (am.hasFullEntitlement() && proc.getDemoGate().isFullVersion(),
+                   "a confirmed member runs the full version");
+
+            m->entitlementsStatus = 500;                       // the DAW goes offline
+            am.backdateVerificationForTesting (13.0 * kDayMs);
+            am.enforceOfflineWindows();
+            am.refreshEntitlementsForTesting();                // fails
+            check (am.hasFullEntitlement() && proc.getDemoGate().isFullVersion(),
+                   "13 days without an answer: still the full version");
+
+            am.backdateVerificationForTesting (15.0 * kDayMs);
+            am.enforceOfflineWindows();
+            check (! am.hasFullEntitlement() && ! proc.getDemoGate().isFullVersion(),
+                   "15 days without an answer: the running instance is back in the demo");
+            check (! proc.getDemoGate().expired(),
+                   "...with a fresh 15-minute session, not an expired one");
+            check (am.getMembershipLapse() == Lapse::unconfirmed,
+                   "...and the page is told the membership could not be confirmed");
+            check (am.getState() == sid::auth::AuthManager::State::signedIn,
+                   "...without signing the account out");
+
+            m->entitlementsStatus = 200;                       // back online, still a member
+            am.refreshEntitlementsForTesting();
+            check (am.hasFullEntitlement() && proc.getDemoGate().isFullVersion()
+                       && am.getMembershipLapse() == Lapse::none,
+                   "a fresh confirmation restores the full version and clears the notice");
+        }
+
+        // (c) The same withdrawal through a FAILED check (the network-error branch).
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            auto& am = proc.getAuthManager();
+
+            m->entitlementsStatus = 500;
+            am.backdateVerificationForTesting (15.0 * kDayMs);
+            am.refreshEntitlementsForTesting();
+            check (! am.hasFullEntitlement() && ! proc.getDemoGate().isFullVersion(),
+                   "a failed check on a 15-day-old answer withdraws the full version");
+        }
+
+        // (d) ...and on the auth thread's own wake, with no call from the page.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            auto& am = proc.getAuthManager();
+
+            m->entitlementsStatus = 500;
+            am.backdateVerificationForTesting (15.0 * kDayMs);
+            am.refreshEntitlements();                          // wakes the auth thread
+            check (waitFor ([&] { return ! proc.getDemoGate().isFullVersion(); }),
+                   "the auth thread withdraws an expired grant on its own");
+        }
+
+        // (e) The membership ends while the plugin runs online.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            auto& am = proc.getAuthManager();
+            check (am.getMembershipLapse() == Lapse::none, "a member has no lapse notice");
+
+            m->entitlementsSubscribed = false;                 // cancelled / expired
+            am.refreshEntitlementsForTesting();
+            check (! am.hasFullEntitlement() && ! proc.getDemoGate().isFullVersion(),
+                   "an ended membership returns the running instance to the demo");
+            check (am.getMembershipLapse() == Lapse::ended,
+                   "...and the page is told the membership ENDED");
+
+            am.refreshEntitlementsForTesting();                // still not a member
+            check (am.getMembershipLapse() == Lapse::ended,
+                   "the notice stays while the account is still not a member");
+
+            m->entitlementsSubscribed = true;                  // renewed
+            am.refreshEntitlementsForTesting();
+            check (am.hasFullEntitlement() && am.getMembershipLapse() == Lapse::none,
+                   "renewing restores the full version and clears the notice");
+        }
+
+        // (f) Never a member: no lapse is ever claimed.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            proc.getAuthManager().refreshEntitlementsForTesting();
+            check (proc.getAuthManager().getMembershipLapse() == Lapse::none,
+                   "an account that was never a member is not told its membership ended");
+        }
+
+        // (f2) Still a member, but the answer does not cover PumpCurve (a sign-in
+        //      made for another plugin): not an ENDED membership.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            m->answeredProduct = "chordengine";
+            proc.getAuthManager().refreshEntitlementsForTesting();
+            check (! proc.getDemoGate().isFullVersion()
+                       && proc.getAuthManager().getMembershipLapse() == Lapse::none,
+                   "a membership not confirmed for PumpCurve is not reported as ended");
+        }
+
+        // (g) A licence verified in THIS session is withdrawn after 7 days offline.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->licenseStatus = sid::auth::LicenseResponse::Status::ok;
+            m->entitlementsLicenseActive = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            auto& am = proc.getAuthManager();
+            am.activateLicenseForTesting ("PC-ABCD-EFGH-JKLM-NPQR");
+            check (am.getLicenseStatus() == LS::active && proc.getDemoGate().isFullVersion(),
+                   "an activated licence runs the full version");
+
+            m->entitlementsStatus = 500;
+            am.backdateVerificationForTesting (6.0 * kDayMs, 6.0 * kDayMs);
+            am.enforceOfflineWindows();
+            check (am.getLicenseStatus() == LS::active && proc.getDemoGate().isFullVersion(),
+                   "6 days offline: the licence still holds");
+
+            am.backdateVerificationForTesting (8.0 * kDayMs, 8.0 * kDayMs);
+            am.enforceOfflineWindows();
+            check (am.getLicenseStatus() != LS::active,
+                   "8 days offline: the session-verified licence is withdrawn");
+            check (! am.hasFullEntitlement() && ! proc.getDemoGate().isFullVersion(),
+                   "...and the instance is back in the demo (licence and product answer)");
+            check (am.getLicenseMessage().contains ("7 days"),
+                   "...with a message that says why");
+            check (am.getMembershipLapse() == Lapse::none,
+                   "a licence lapse is not reported as a Music-Prod+ lapse");
+
+            m->entitlementsStatus = 200;
+            am.refreshEntitlementsForTesting();
+            check (am.getLicenseStatus() == LS::active && proc.getDemoGate().isFullVersion(),
+                   "the next server answer restores the licence");
+        }
+
+        // (h) A licence keeps the full version when the membership ends.
+        {
+            authPathL.deleteFile();
+            auto mock = std::make_unique<MockTransport>();
+            MockTransport* m = mock.get();
+            m->entitlementsSubscribed = true;
+            m->entitlementsLicenseActive = true;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            signIn (proc, *m);
+            m->entitlementsSubscribed = false;
+            proc.getAuthManager().refreshEntitlementsForTesting();
+            check (proc.getDemoGate().isFullVersion()
+                       && proc.getAuthManager().getMembershipLapse() == Lapse::none,
+                   "an ended membership does not lock a licensed computer, and claims no lapse");
+        }
+
+        // (i) Launched offline after the window: the notice is there from the start.
+        {
+            authPathL.deleteFile();
+            writeAuthFile (authPathL, "mock-token-0123456789abcdef0123456789abcdef", true,
+                           (double) juce::Time::currentTimeMillis() - 15.0 * kDayMs);
+            auto mock = std::make_unique<MockTransport>();
+            mock->entitlementsStatus = 500;
+            SideChainAudioProcessor proc (std::move (mock), authPathL.getFullPathName());
+            check (! proc.getDemoGate().isFullVersion()
+                       && proc.getAuthManager().getMembershipLapse() == Lapse::unconfirmed,
+                   "a launch on a 15-day-old member cache starts in the demo, marked unconfirmed");
+        }
+
+        authPathL.deleteFile();
+        authPathL.getSiblingFile ("device_id.txt").deleteFile();
     }
 
     for (const auto& f : { authPathA, authPathB, authPathC })

@@ -580,7 +580,18 @@ void InfoPageComponent::refresh()
     // A membership the server did NOT confirm for this product is shown as
     // exactly that - never as an active subscription that unlocks PumpCurve.
     const bool notValidHere = auth.subscriptionNotValidForProduct();
-    if (state == State::signedIn)
+    // A Music-Prod+ full version this instance HAD and lost: named as such, so
+    // the customer knows why the demo is back. Shown only while in the demo.
+    using Lapse = sid::auth::AuthManager::MembershipLapse;
+    const Lapse lapse = demoGate.isFullVersion() ? Lapse::none : auth.getMembershipLapse();
+    if (state == State::signedIn && lapse != Lapse::none)
+    {
+        subscriptionStatus.setText (lapse == Lapse::ended ? "MUSIC-PROD+ ENDED - DEMO VERSION"
+                                                          : "MUSIC-PROD+ NOT CONFIRMED - DEMO VERSION",
+                                    juce::dontSendNotification);
+        setTone (subscriptionStatus, Tone::warn);
+    }
+    else if (state == State::signedIn)
     {
         subscriptionStatus.setText (! auth.isSubscribed() ? "MUSIC-PROD+ NOT ACTIVE"
                                     : notValidHere        ? "MUSIC-PROD+ NOT CONFIRMED FOR PUMPCURVE"
@@ -627,6 +638,16 @@ void InfoPageComponent::refresh()
     else if (state == State::signedIn && checkingSubscription)
         detailLabel.setText ("Checking your subscription with Music-Prod...",
                              juce::dontSendNotification);
+    else if (state == State::signedIn && lapse == Lapse::ended)
+        detailLabel.setText ("Music-Prod reports that your Music-Prod+ membership has ended, so "
+                             "PumpCurve is back in the 15-minute demo. Renew Music-Prod+ or enter "
+                             "a PumpCurve licence key to unlock the full version again.",
+                             juce::dontSendNotification);
+    else if (state == State::signedIn && lapse == Lapse::unconfirmed)
+        detailLabel.setText ("PumpCurve could not confirm your Music-Prod+ membership with "
+                             "Music-Prod for 14 days, so it is back in the 15-minute demo. Connect "
+                             "to the internet and press CHECK SUBSCRIPTION.",
+                             juce::dontSendNotification);
     else if (state == State::signedIn && auth.didLastEntitlementCheckFail())
         // No answer is not an answer: say so, keep the last verified state
         // (shown above), and point at the retry - never a verdict the server
@@ -665,7 +686,8 @@ void InfoPageComponent::refresh()
         detailLabel.setText ("", juce::dontSendNotification);
 
     setTone (detailLabel, state == State::signedIn && ! checkingSubscription
-                              && (auth.didLastEntitlementCheckFail() || notValidHere) ? Tone::warn
+                              && (auth.didLastEntitlementCheckFail() || notValidHere
+                                  || lapse != Lapse::none) ? Tone::warn
                         : state == State::error ? Tone::bad
                                                 : Tone::muted);
 }

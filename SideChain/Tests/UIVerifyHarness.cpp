@@ -1397,8 +1397,11 @@ int main()
         auth.refreshEntitlementsForTesting();            // confirmed inactive again
         page.refresh();
         check (! proc.getDemoGate().isFullVersion()
-                   && infoTextContains (editor, "MUSIC-PROD+ NOT ACTIVE"),
-               "an inactive answer withdraws the full version");
+                   && infoTextContains (editor, "MUSIC-PROD+ ENDED - DEMO VERSION")
+                   && ! infoTextContains (editor, "MUSIC-PROD+ ACTIVE"),
+               "an inactive answer withdraws the full version and says the membership ENDED");
+        check (infoTextContains (editor, "membership has ended"),
+               "...and the page explains that the demo is back because the membership ended");
 
         authMock->subscriptionActive = true;             // the server would say yes
         authMock->entitlementsFail = true;               // ...but never answers
@@ -1409,7 +1412,7 @@ int main()
         page.refresh();
         check (! proc.getDemoGate().isFullVersion(),
                "a network failure never unlocks the full version");
-        check (infoTextContains (editor, "MUSIC-PROD+ NOT ACTIVE")
+        check (infoTextContains (editor, "MUSIC-PROD+ ENDED - DEMO VERSION")
                    && ! infoTextContains (editor, "MUSIC-PROD+ ACTIVE"),
                "...and the page never claims the subscription is active");
         check (refreshButton != nullptr && refreshButton->isEnabled(),
